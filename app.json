@@ -1,28 +1,54 @@
 {
   "expo": {
-    "name": "BarScoutExpo",
-    "slug": "BarScoutExpo",
+    "name": "BarScout",
+    "slug": "BarScout",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.barscout.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BarScout needs your location to find bars and events near you",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "BarScout needs your location to find bars and events near you",
+        "NSLocationAlwaysUsageDescription": "BarScout needs your location to find bars and events near you",
+        "NSCameraUsageDescription": "BarScout needs access to your camera to let you take photos for events",
+        "NSPhotoLibraryUsageDescription": "BarScout needs access to your photos to let you choose images for events"
+      },
+      "userInterfaceStyle": "automatic"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.barscout.app",
+      "userInterfaceStyle": "automatic"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-location",
+      "expo-image-picker",
+      "expo-font"
+    ],
+    "sdkVersion": "52.0.0"
   }
 }
