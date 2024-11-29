@@ -1,4 +1,27 @@
-import React, { useState } from 'react';
+/**
+ * EventsScreen - Bar Events List Screen
+ * 
+ * Layout:
+ * - Horizontal filter tabs at the top (All, Today, Week, Weekend)
+ * - Scrollable list of event cards
+ * - Pull-to-refresh functionality
+ * - Loading indicator when fetching data
+ * - Add Event FAB in bottom right corner
+ * 
+ * Core Functionality:
+ * - Displays all upcoming bar events
+ * - Filter events by time period (all/today/week/weekend)
+ * - Navigation to event details
+ * - Quick access to create new events
+ * - Refresh mechanism to update event data
+ * 
+ * Data Flow:
+ * - Uses useEvents hook for fetching event data
+ * - Implements event filtering based on date ranges
+ * - Sorts events chronologically
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,6 +52,10 @@ export const EventsScreen: React.FC = () => {
   const { events, loading, error, refetch } = useEvents();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'weekend'>('all');
+
+  useEffect(() => {
+    refetch();
+  }, []);
 
   const styles = StyleSheet.create({
     container: {
@@ -74,7 +101,7 @@ export const EventsScreen: React.FC = () => {
       padding: theme.spacing.md,
     },
     eventCard: {
-      backgroundColor: theme.colors.card,
+      backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.md,
       marginBottom: theme.spacing.md,
       overflow: 'hidden',
@@ -113,28 +140,6 @@ export const EventsScreen: React.FC = () => {
       color: theme.colors.text,
       marginBottom: theme.spacing.sm,
     },
-    coverCharge: {
-      fontSize: theme.typography.sizes.md,
-      fontWeight: theme.typography.weights.semibold,
-      color: theme.colors.primary,
-      marginBottom: theme.spacing.sm,
-    },
-    tagsContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: theme.spacing.xs,
-    },
-    tag: {
-      backgroundColor: theme.colors.primaryLight,
-      paddingVertical: theme.spacing.xs,
-      paddingHorizontal: theme.spacing.sm,
-      borderRadius: theme.borderRadius.full,
-    },
-    tagText: {
-      fontSize: theme.typography.sizes.sm,
-      color: theme.colors.primary,
-      fontWeight: theme.typography.weights.semibold,
-    },
   });
 
   const handleRefresh = async () => {
@@ -168,7 +173,7 @@ export const EventsScreen: React.FC = () => {
 
   const isWeekend = (date: Date) => {
     const day = date.getDay();
-    return day === 5 || day === 6; // Friday or Saturday
+    return day === 5 || day === 6; 
   };
 
   const renderEvent = ({ item }: { item: EventType }) => (
@@ -176,34 +181,16 @@ export const EventsScreen: React.FC = () => {
       style={styles.eventCard}
       onPress={() => navigation.navigate('BarDetails', { barId: item.bar_id })}
       activeOpacity={0.7}>
-      {item.imageUrl && (
-        <Image source={{ uri: item.imageUrl }} style={styles.eventImage} />
-      )}
       <View style={styles.eventContent}>
         <Text style={styles.eventTitle}>{item.name || 'Untitled Event'}</Text>
         <Text style={styles.barName}>{item.bar?.name || 'Unknown Venue'}</Text>
         <Text style={styles.eventDate}>
-          {format(new Date(item.date), 'EEE, MMM d')} •{' '}
-          {item.startTime || 'TBA'} - {item.endTime || 'TBA'}
+          {format(new Date(item.date), 'EEE, MMM d • h:mm a')}
         </Text>
         {item.description && (
           <Text style={styles.eventDescription} numberOfLines={2}>
             {item.description}
           </Text>
-        )}
-        {item.coverCharge !== null && item.coverCharge !== undefined && (
-          <Text style={styles.coverCharge}>
-            Cover: ${Number(item.coverCharge).toFixed(2)}
-          </Text>
-        )}
-        {item.tags && item.tags.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {item.tags.map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
         )}
       </View>
     </TouchableOpacity>

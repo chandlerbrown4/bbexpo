@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -10,7 +10,6 @@ import { darkTheme, lightTheme } from './src/theme/theme';
 
 export default function App() {
   const colorScheme = useColorScheme();
-  console.log('Current color scheme:', colorScheme); // Debug log
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
 
   const customLightTheme = {

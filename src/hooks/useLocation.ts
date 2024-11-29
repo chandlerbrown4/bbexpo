@@ -12,15 +12,12 @@ export const useLocation = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getLocation = async () => {
+  const fetchLocation = async () => {
     try {
-      console.log('useLocation: Starting location fetch...');
       setLoading(true);
       setError(null);
 
-      // Use development location if configured
       if (developmentConfig.useDevLocation) {
-        console.log('useLocation: Using development location:', developmentConfig.devLocation);
         setLocation(developmentConfig.devLocation);
         setLoading(false);
         return;
@@ -28,18 +25,16 @@ export const useLocation = () => {
 
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
-        console.log('useLocation: No permission granted');
-        throw new Error('Location permission denied');
+        setError('Location permission denied');
+        return;
       }
 
       const position = await getCurrentLocation();
-      console.log('useLocation: Got position:', position);
       setLocation({
         latitude: position.latitude,
         longitude: position.longitude,
       });
     } catch (err) {
-      console.error('useLocation: Error getting location:', err);
       setError(err instanceof Error ? err.message : 'Failed to get location');
     } finally {
       setLoading(false);
@@ -47,14 +42,13 @@ export const useLocation = () => {
   };
 
   useEffect(() => {
-    console.log('useLocation: Initial location fetch');
-    getLocation();
+    fetchLocation();
   }, []);
 
   return {
     location,
     loading,
     error,
-    refreshLocation: getLocation,
+    refreshLocation: fetchLocation,
   };
 };

@@ -39,9 +39,6 @@ export const useNearbyBars = ({
         .from('bars')
         .select('*');
 
-      console.log('Fetched bars:', barsData);
-      console.log('Fetch error:', fetchError);
-
       if (fetchError) {
         throw new Error(fetchError.message);
       }
@@ -65,13 +62,8 @@ export const useNearbyBars = ({
         .filter((bar) => bar.distance <= maxDistance)
         .sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
-      console.log('Filtered bars:', barsWithDistance);
-      console.log('User coordinates:', { userLatitude, userLongitude });
-      console.log('Max distance:', maxDistance);
-
       setBars(barsWithDistance);
     } catch (err) {
-      console.error('Error in fetchNearbyBars:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);

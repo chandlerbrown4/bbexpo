@@ -1,3 +1,67 @@
+/**
+ * LineTimesScreen - Nearby Bars with Line Times
+ * 
+ * Layout:
+ * ┌─────────────────────────────┐
+ * │     Nearby Bars (Title)     │
+ * ├─────────────────────────────┤
+ * │ ┌─────────────────────────┐ │
+ * │ │    Bar Card             │ │
+ * │ │ ┌───────┐              │ │
+ * │ │ │  Bar  │ Bar Name     │ │
+ * │ │ │ Icon  │ Distance     │ │
+ * │ │ └───────┘              │ │
+ * │ │ Current Line: Medium    │ │
+ * │ │ Wait Time: ~15 mins    │ │
+ * │ │ Updated: 2 mins ago    │ │
+ * │ └─────────────────────────┘ │
+ * │ ┌─────────────────────────┐ │
+ * │ │    Bar Card             │ │
+ * │ │    ...                  │ │
+ * │ └─────────────────────────┘ │
+ * └─────────────────────────────┘
+ * 
+ * Core Functionality:
+ * - Displays bars within 20 miles of user's location
+ * - Shows current line status for each bar
+ * - Real-time line time updates
+ * - Pull-to-refresh functionality
+ * - Distance-based sorting (nearest first)
+ * - Navigation to bar details
+ * - Add line time capability
+ * 
+ * Data Flow:
+ * - Uses useNearbyBars hook for location-based bar filtering
+ * - Uses useLineTime hook for line time data
+ * - Uses useLocation hook for user's position
+ * - Auto-refreshes on screen focus
+ * - Filters bars > 20 miles away
+ * 
+ * Bar Card Display:
+ * - Bar name and distance
+ * - Current line status (No Line → Very Long Line)
+ * - Average wait time from recent submissions
+ * - Time elapsed since last update
+ * - Color-coded wait times:
+ *   • Green: No line/Short
+ *   • Orange: Medium
+ *   • Red: Long/Very Long
+ * 
+ * Line Time Calculation:
+ * - Only considers submissions from last 2 hours
+ * - Uses weighted average system:
+ *   • Newer posts have higher weight (exponential decay)
+ *   • Weight = e^(-0.5 * ageInHours)
+ *   • Final time = Σ(weight * minutes) / Σ(weight)
+ * - Default wait times if no minutes specified:
+ *   • No Line: 0 mins
+ *   • Short: 5 mins
+ *   • Medium: 10 mins
+ *   • Long: 25 mins
+ *   • Very Long: 35 mins
+ */
+
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,7 +72,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNearbyBars } from '../hooks/useNearbyBars';
 import { useLineTime } from '../hooks/useLineTime';
@@ -35,7 +99,7 @@ export const LineTimesScreen: React.FC = () => {
   const { bars, loading: barsLoading, error: barsError } = useNearbyBars({
     userLatitude: location?.latitude ?? 36.1584,
     userLongitude: location?.longitude ?? -81.1476,
-    maxDistance: 10000,
+    maxDistance: 20,
   });
   const { lineTimes, loading: lineTimesLoading, error: lineTimesError, fetchLineTimes, getLineCategoryFromMinutes } = useLineTime();
   const [refreshing, setRefreshing] = useState(false);
@@ -149,6 +213,15 @@ export const LineTimesScreen: React.FC = () => {
     fetchLineTimes();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshData = async () => {
+        await fetchLineTimes();
+      };
+      refreshData();
+    }, [fetchLineTimes])
+  );
+
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const postTime = new Date(timestamp);
@@ -166,23 +239,29 @@ export const LineTimesScreen: React.FC = () => {
 
   const getAverageLineTime = (barLineTimes: typeof lineTimes) => {
     const now = new Date();
-    const twentyMinutesAgo = new Date(now.getTime() - 20 * 60000);
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-    // Filter line times from last 20 minutes
     const recentLineTimes = barLineTimes.filter(lt => {
       const timestamp = new Date(lt.timestamp);
-      return timestamp >= twentyMinutesAgo;
+      return timestamp >= twoHoursAgo;
     });
 
     if (recentLineTimes.length === 0) {
       return null;
     }
 
-    // Calculate average minutes
-    const totalMinutes = recentLineTimes.reduce((sum, lt) => sum + lt.minutes, 0);
-    const averageMinutes = totalMinutes / recentLineTimes.length;
+    const totalWeight = recentLineTimes.reduce((sum, lt) => {
+      const ageInHours = (now.getTime() - new Date(lt.timestamp).getTime()) / (60 * 60 * 1000);
+      const weight = Math.exp(-0.5 * ageInHours);
+      return sum + weight;
+    }, 0);
 
-    // Get the most common line status
+    const weightedAverageMinutes = recentLineTimes.reduce((sum, lt) => {
+      const ageInHours = (now.getTime() - new Date(lt.timestamp).getTime()) / (60 * 60 * 1000);
+      const weight = Math.exp(-0.5 * ageInHours);
+      return sum + weight * lt.minutes;
+    }, 0) / totalWeight;
+
     const lineStatusCount: { [key: string]: number } = {};
     recentLineTimes.forEach(lt => {
       lineStatusCount[lt.line] = (lineStatusCount[lt.line] || 0) + 1;
@@ -192,7 +271,7 @@ export const LineTimesScreen: React.FC = () => {
 
     return {
       line: mostCommonLine,
-      averageMinutes,
+      averageMinutes: weightedAverageMinutes,
       numSubmissions: recentLineTimes.length,
       latestTimestamp: recentLineTimes[0].timestamp,
     };
@@ -200,10 +279,10 @@ export const LineTimesScreen: React.FC = () => {
 
   const getWaitTimeColor = (minutes: number): string => {
     if (minutes <= 0) return theme.colors.success;
-    if (minutes < 5) return '#4CAF50';  // Light green
-    if (minutes < 15) return '#FFA726';  // Orange
-    if (minutes < 30) return '#FF7043';  // Deep Orange
-    return '#E53935';  // Red
+    if (minutes < 5) return '#4CAF50';  
+    if (minutes < 15) return '#FFA726';  
+    if (minutes < 30) return '#FF7043';  
+    return '#E53935';  
   };
 
   const formatDistance = (distance: number) => {
@@ -290,7 +369,7 @@ export const LineTimesScreen: React.FC = () => {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary}/>
         }
       />
     </View>

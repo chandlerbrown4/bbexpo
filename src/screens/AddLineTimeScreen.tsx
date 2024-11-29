@@ -158,13 +158,6 @@ export const AddLineTimeScreen: React.FC = () => {
 
         setBar(barData);
 
-        console.log('Checking distance:', {
-          userLat: location.latitude,
-          userLon: location.longitude,
-          barLat: barData.latitude,
-          barLon: barData.longitude
-        });
-
         const distance = calculateDistance(
           location.latitude,
           location.longitude,
@@ -172,14 +165,11 @@ export const AddLineTimeScreen: React.FC = () => {
           barData.longitude
         );
 
-        console.log('Calculated distance:', distance);
-        
         setIsNearby(distance <= MAX_DISTANCE_MILES);
         if (distance > MAX_DISTANCE_MILES) {
           setError(`You must be within ${MAX_DISTANCE_MILES} miles of the bar to add a line time (Current distance: ${distance.toFixed(1)} miles)`);
         }
       } catch (err) {
-        console.error('Error fetching bar details:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch bar details');
       } finally {
         setLoading(false);
@@ -229,7 +219,7 @@ export const AddLineTimeScreen: React.FC = () => {
         selectedLine,
         waitTime
       );
-      navigation.goBack();
+      navigation.navigate('MainTabs', { screen: 'NearbyBars' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add line time');
     }

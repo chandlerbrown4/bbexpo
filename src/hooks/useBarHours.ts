@@ -18,19 +18,24 @@ const DAY_MAP = {
   6: 'Saturday'
 };
 
+export type FormattedHours = {
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+};
+
 export const useBarHours = () => {
   const [hours, setHours] = useState<BarHours[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHours = useCallback(async (barId: string) => {
+  const fetchHours = async (barId: string) => {
     if (!barId) {
-      console.error('No barId provided to fetchHours');
+      setError('No barId provided to fetchHours');
       return;
     }
 
     try {
-      console.log('Starting to fetch hours for bar:', barId);
       setLoading(true);
       setError(null);
 
@@ -40,48 +45,31 @@ export const useBarHours = () => {
         .eq('bar_id', barId)
         .order('day_of_week');
 
-      console.log('Hours query response:', { data, error: supabaseError });
-
       if (supabaseError) {
-        console.error('Error fetching hours:', supabaseError);
-        throw supabaseError;
+        setError(supabaseError.message);
+        return;
       }
 
       if (!data || data.length === 0) {
-        console.log('No hours found for bar:', barId);
-      } else {
-        console.log('Successfully fetched hours:', data);
+        setHours([]);
+        return;
       }
 
-      setHours(data || []);
+      setHours(data);
     } catch (err) {
-      console.error('Error in fetchHours:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch bar hours');
-      setHours([]);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
-      console.log('Finished fetching hours');
     }
-  }, []);
+  };
 
-  const formatHours = (hours: BarHours[]): Record<string, string> => {
-    console.log('Formatting hours:', hours);
-    
-    // Initialize with all days
-    const formattedHours = Object.values(DAY_MAP).reduce<Record<string, string>>((acc, day) => {
-      acc[day] = 'Not available';
-      return acc;
-    }, {});
+  const formatHours = (hours: BarHours[]): FormattedHours[] => {
+    const formattedHours = hours.map((hour) => ({
+      dayOfWeek: hour.day_of_week,
+      openTime: hour.time.split(' - ')[0],
+      closeTime: hour.time.split(' - ')[1],
+    }));
 
-    // Fill in the available hours
-    hours.forEach(hour => {
-      const dayName = DAY_MAP[hour.day_of_week as keyof typeof DAY_MAP];
-      if (dayName) {
-        formattedHours[dayName] = hour.time;
-      }
-    });
-
-    console.log('Formatted hours:', formattedHours);
     return formattedHours;
   };
 

@@ -1,7 +1,7 @@
 module.exports = {
   expo: {
-    name: 'BarScoutExpo',
-    slug: 'BarScoutExpo',
+    name: 'Bar Scout',
+    slug: 'Bar Scout',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',

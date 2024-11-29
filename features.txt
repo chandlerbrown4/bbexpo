@@ -1,0 +1,63 @@
+Line Time Reliability System
+User reputation system for line time reports
+Upvote/downvote system for line time accuracy
+"Verified" status for frequent, accurate reporters
+Automatic flagging of suspicious reports
+Smart Notifications
+Alert users when their favorite bars' lines change significantly
+Notify users of typical busy times based on historical data
+Weekend/special event alerts for expected busy periods
+Custom notification thresholds (e.g., "notify me when line is < 15 min")
+Enhanced Line Time Reporting
+Photo verification of lines
+Quick report options ("No Line", "Short", "Medium", "Long")
+Allow comments with line reports (e.g., "Moving fast", "One in, one out")
+Report different lines (Main entrance, VIP, etc.)
+Historical Data & Predictions
+Show historical line patterns by day/hour
+Predict busy times based on past data
+Special event impact on lines
+Weather impact on typical attendance
+Social Features
+Friend group planning ("Where are my friends going?")
+Share current line status with friends
+Group chat for coordinating nights out
+Bar recommendations based on friend activity
+Enhanced Bar Details
+Current capacity indicators
+Live music/DJ schedule
+Cover charge information
+Drink specials
+Gender ratio (if legally permissible)
+Age restrictions/requirements
+Map Enhancements
+Heat map of busy areas
+Color-coded markers based on line length
+Walking time to each bar
+Suggested bar crawl routes
+Parking availability
+Line Management Features (for Bar Owners)
+QR code system for accurate line reporting
+Ability to post official updates
+Capacity management tools
+Special event announcements
+Transportation Integration
+Uber/Lyft integration for safe travels
+Nearby parking information
+Public transit times
+Walking directions between bars
+Gamification Elements
+Points for accurate line reports
+Badges for frequent reporters
+"Local Expert" status for specific bars/areas
+Challenges and rewards for active users
+Safety Features
+Emergency contact sharing
+Safe route recommendations
+Crowd safety alerts
+Direct links to ride-sharing apps
+Business Intelligence (for Bar Owners)
+Historical line time trends
+Peak hours analysis
+Customer flow patterns
+Competitive analysis

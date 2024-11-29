@@ -106,10 +106,8 @@ export const useLineTime = (): UseLineTimeResult => {
       const { data, error: fetchError } = await query.limit(50);
 
       if (fetchError) throw fetchError;
-      console.log('Fetched line times:', data);
       setLineTimes(data || []);
     } catch (err: any) {
-      console.error('Error fetching line times:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -144,7 +142,6 @@ export const useLineTime = (): UseLineTimeResult => {
       // Fetch updated line times after adding a new one
       await fetchLineTimes();
     } catch (err: any) {
-      console.error('Error adding line time:', err);
       setError(err.message);
       throw err;
     } finally {

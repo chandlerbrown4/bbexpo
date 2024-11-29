@@ -84,16 +84,16 @@ export const lightTheme: Theme = {
     secondary: '#ea580c',      // Darker orange variation
     accent: '#fb923c',         // Using main orange as accent
     background: '#FFFFFF',     // White
-    surface: '#F9FAFB',        // Light gray background
+    surface: '#F5F6F7',        // Light gray background ###########
     text: '#1F2937',          // Dark text for contrast
     textSecondary: '#6B7280',  // Secondary text color
     error: '#DC2626',         // Red for errors
     success: '#059669',       // Green for success
     warning: '#D97706',       // Amber for warnings
     info: '#3B82F6',         // Blue for info
-    border: '#E5E7EB',       // Light grey
-    card: '#FFFFFF',         // White for cards
-    shadow: 'rgba(0, 0, 0, 0.1)', // Subtle shadow
+    border: '#E2E4E9',       // Light grey        ##########
+    card: '#FFFFFF',         // White for cards ##############
+    shadow: 'rgba(0, 0, 0, 0.1)', // Subtle shadow ############
     white: '#FFFFFF',        // Pure white
   },
   spacing: {
@@ -178,7 +178,6 @@ export const darkTheme: Theme = {
 export const useTheme = () => {
   // Using Appearance.getColorScheme() directly as a fallback
   const colorScheme = useColorScheme() || Appearance.getColorScheme();
-  console.log('Theme color scheme:', colorScheme, 'Appearance:', Appearance.getColorScheme());
   return colorScheme === 'dark' ? darkTheme : lightTheme;
 };
 

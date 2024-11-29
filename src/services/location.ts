@@ -2,38 +2,32 @@ import * as Location from 'expo-location';
 
 export const requestLocationPermission = async () => {
   try {
-    console.log('Requesting location permission...');
     const { status } = await Location.requestForegroundPermissionsAsync();
-    console.log('Location permission status:', status);
+    
     if (status !== 'granted') {
-      console.log('Permission to access location was denied');
-      return false;
+      throw new Error('Permission to access location was denied');
     }
+    
     return true;
-  } catch (err) {
-    console.warn('Error requesting location permission:', err);
-    return false;
+  } catch (error) {
+    throw error;
   }
 };
 
 export const getCurrentLocation = async () => {
   try {
-    console.log('Checking location permission...');
-    const hasPermission = await requestLocationPermission();
-    if (!hasPermission) {
-      console.log('No location permission, throwing error');
+    const { status } = await Location.getForegroundPermissionsAsync();
+    
+    if (status !== 'granted') {
       throw new Error('Location permission not granted');
     }
 
-    console.log('Getting current position...');
     const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced, // Changed to Balanced for faster results
+      accuracy: Location.Accuracy.Balanced,
     });
 
-    console.log('Got location:', location.coords);
-    return location.coords;
+    return location;
   } catch (error) {
-    console.error('Error getting location:', error);
     throw error;
   }
 };

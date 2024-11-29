@@ -1,3 +1,32 @@
+/**
+ * SettingsScreen - App Settings and Configuration Screen
+ * 
+ * Layout:
+ * - Scrollable list of settings sections
+ * - Three main sections:
+ *   1. Notifications (toggles)
+ *   2. Privacy (toggles and actions)
+ *   3. Support (links and feedback)
+ * 
+ * Core Functionality:
+ * - Toggle push notifications and line time alerts
+ * - Manage location services and analytics sharing
+ * - Clear app data functionality
+ * - Access to privacy policy and terms of service
+ * - Send feedback option
+ * 
+ * Data Flow:
+ * - Uses AsyncStorage for persistent settings storage
+ * - Local state management for immediate UI updates
+ * - External URL handling for policy/terms links
+ * - Alert dialogs for destructive actions
+ * 
+ * Settings Types:
+ * - toggle: Boolean switches (notifications, location, analytics)
+ * - button: Action triggers (clear data, feedback)
+ * - link: External URL navigation (privacy, terms)
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +40,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../theme/theme';
+import { useAuth } from '../context/AuthContext';
 
 interface SettingsSection {
   title: string;
@@ -26,26 +56,10 @@ interface Setting {
   url?: string;
 }
 
-export const SettingsScreen = () => {
+export const SettingsScreen: React.FC = () => {
   const theme = useTheme();
+  const { signOut } = useAuth();
   const [settings, setSettings] = useState<SettingsSection[]>([
-    {
-      title: 'General',
-      settings: [
-        {
-          key: 'autoRefresh',
-          title: 'Auto-refresh Data',
-          type: 'toggle',
-          value: true,
-        },
-        {
-          key: 'saveSearchHistory',
-          title: 'Save Search History',
-          type: 'toggle',
-          value: true,
-        },
-      ],
-    },
     {
       title: 'Notifications',
       settings: [
@@ -58,12 +72,6 @@ export const SettingsScreen = () => {
         {
           key: 'lineTimeAlerts',
           title: 'Line Time Alerts',
-          type: 'toggle',
-          value: true,
-        },
-        {
-          key: 'specialsAlerts',
-          title: 'Specials Alerts',
           type: 'toggle',
           value: true,
         },
@@ -96,16 +104,16 @@ export const SettingsScreen = () => {
       title: 'Support',
       settings: [
         {
-          key: 'help',
-          title: 'Help Center',
-          type: 'link',
-          url: 'https://barscout.com/help',
+          key: 'feedback',
+          title: 'Send Feedback',
+          type: 'button',
+          onPress: () => handleSendFeedback(),
         },
         {
-          key: 'privacy',
+          key: 'privacyPolicy',
           title: 'Privacy Policy',
           type: 'link',
-          url: 'https://barscout.com/privacy',
+          url: 'https://barscout.com/privacy-policy',
         },
         {
           key: 'terms',
@@ -113,11 +121,32 @@ export const SettingsScreen = () => {
           type: 'link',
           url: 'https://barscout.com/terms',
         },
+      ],
+    },
+    {
+      title: 'Account',
+      settings: [
         {
-          key: 'feedback',
-          title: 'Send Feedback',
+          key: 'signOut',
+          title: 'Sign Out',
           type: 'button',
-          onPress: () => handleSendFeedback(),
+          onPress: () => {
+            Alert.alert(
+              'Sign Out',
+              'Are you sure you want to sign out?',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Sign Out',
+                  style: 'destructive',
+                  onPress: signOut,
+                },
+              ],
+            );
+          },
         },
       ],
     },
@@ -162,7 +191,7 @@ export const SettingsScreen = () => {
   };
 
   const handleSendFeedback = () => {
-    Linking.openURL('mailto:feedback@barscout.com');
+    Linking.openURL('mailto:contact@bar-scout.com');
   };
 
   const renderSetting = (setting: Setting, sectionIndex: number, settingIndex: number) => {

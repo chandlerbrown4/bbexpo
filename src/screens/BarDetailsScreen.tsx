@@ -1,3 +1,29 @@
+/**
+ * BarDetailsScreen - Individual Bar Information Screen
+ * 
+ * Layout:
+ * - Bar image/header at the top
+ * - Bar information section (name, address, description)
+ * - Actions section (call, directions, menu)
+ * - Tabbed content section (info, specials)
+ * - Info tab: hours, about, amenities
+ * - Specials tab: list of specials
+ * 
+ * Core Functionality:
+ * - Displays detailed information about a specific bar
+ * - Shows hours, about, and amenities information
+ * - Displays list of specials
+ * - Provides navigation to directions and menu
+ * - Refresh mechanism to update bar data
+ * 
+ * Data Flow:
+ * - Receives barId through navigation params
+ * - Uses useNearbyBars hook for fetching nearby bars
+ * - Uses useSpecials hook for fetching specials
+ * - Uses useBarHours hook for fetching bar hours
+ * - Uses useLocation hook for fetching user location
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -23,6 +49,16 @@ import { useTheme } from '../theme/theme';
 
 type BarDetailsRouteProp = RouteProp<RootStackParamList, 'BarDetails'>;
 type BarDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+const DAY_MAP = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+};
 
 export const BarDetailsScreen: React.FC = () => {
   const theme = useTheme();
@@ -57,7 +93,6 @@ export const BarDetailsScreen: React.FC = () => {
   useEffect(() => {
     if (!barId) return;
     
-    console.log('BarDetailsScreen: Initial data fetch for bar:', barId);
     fetchSpecials(barId);
     fetchHours(barId);
   }, [barId]);
@@ -309,10 +344,10 @@ export const BarDetailsScreen: React.FC = () => {
               ) : error ? (
                 <Text style={styles.errorText}>{error}</Text>
               ) : hours.length > 0 ? (
-                Object.entries(formatHours(hours)).map(([day, hours]) => (
-                  <View key={day} style={styles.hourRow}>
-                    <Text style={styles.dayText}>{day}</Text>
-                    <Text style={styles.hoursText}>{hours}</Text>
+                formatHours(hours).map((hour) => (
+                  <View key={hour.dayOfWeek} style={styles.hourRow}>
+                    <Text style={styles.dayText}>{DAY_MAP[hour.dayOfWeek]}</Text>
+                    <Text style={styles.hoursText}>{`${hour.openTime} - ${hour.closeTime}`}</Text>
                   </View>
                 ))
               ) : (

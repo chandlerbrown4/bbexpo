@@ -1,15 +1,41 @@
+/**
+ * MainNavigator - Primary Navigation Configuration
+ * 
+ * Navigation Structure:
+ * - Stack Navigator (Root)
+ *   ├─ Tab Navigator (MainTabs)
+ *   │  ├─ Home Tab (Bar List)
+ *   │  ├─ Events Tab
+ *   │  └─ Account Tab
+ *   ├─ Bar Details Screen
+ *   ├─ Line Times Screen
+ *   ├─ Add Line Time Screen
+ *   ├─ Add Event Screen
+ *   ├─ Settings Screen
+ *   ├─ Sign In Screen
+ *   └─ Sign Up Screen
+ * 
+ * Features:
+ * - Handles authentication flow
+ * - Manages bottom tab navigation
+ * - Configures screen transitions
+ * - Implements consistent header styling
+ * - Handles loading states
+ * 
+ * Theme Integration:
+ * - Uses theme colors for navigation elements
+ * - Consistent styling across all navigation components
+ * - Custom header and tab bar configurations
+ */
+
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { HomeScreen } from '../screens/HomeScreen';
 import { EventsScreen } from '../screens/EventsScreen';
-import { AccountScreen } from '../screens/AccountScreen';
 import { BarDetailsScreen } from '../screens/BarDetailsScreen';
 import { AddLineTimeScreen } from '../screens/AddLineTimeScreen';
-import { AddEventScreen } from '../screens/AddEventScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SignInScreen } from '../screens/auth/SignInScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
@@ -118,12 +144,13 @@ export const MainNavigator = () => {
           elevation: 5,
         },
         headerTitleStyle: {
-          color: theme.colors.text,
+          color: theme.colors.card,
           fontSize: theme.typography.sizes.lg,
           fontWeight: theme.typography.weights.semibold,
         },
         headerTintColor: theme.colors.primary,
         headerBackTitleVisible: false,
+        headerBackTitle: 'Back',
       }}>
       {user ? (
         <>
@@ -141,11 +168,6 @@ export const MainNavigator = () => {
             name="AddLineTime"
             component={AddLineTimeScreen}
             options={{ title: 'Add Line Time' }}
-          />
-          <Stack.Screen
-            name="AddEvent"
-            component={AddEventScreen}
-            options={{ title: 'Add Event' }}
           />
         </>
       ) : (

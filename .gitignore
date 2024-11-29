@@ -1,35 +1,111 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# Dependencies
 node_modules/
+.pnp/
+.pnp.js
 
 # Expo
 .expo/
 dist/
 web-build/
-
-# Native
-*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.orig.*
+*.apk
+*.aab
+*.ipa
+
+# Testing
+coverage/
+.jest/
+
+# Production
+build/
+web-build/
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDE - IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - WebStorm
+.idea/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
 
 # Metro
 .metro-health-check*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# Android/IntelliJ
+android/**/build/
+android/**/.gradle
+android/**/captures/
+android/**/local.properties
+android/**/.idea/
+android/**/gradle/
+android/**/*.iml
+android/**/*.hprof
 
-# macOS
-.DS_Store
-*.pem
+# iOS
+ios/**/build/
+ios/**/Pods/
+ios/**/*.xcworkspace
+ios/**/*.xcodeproj/*
+!ios/**/*.xcodeproj/project.pbxproj
+!ios/**/*.xcodeproj/xcshareddata/
+!ios/**/*.xcworkspace/contents.xcworkspacedata
+ios/**/.xcode.env.local
+ios/**/Podfile.lock
+ios/**/Podfile.properties.json
 
-# local env files
-.env*.local
+# Generated files
+android/app/src/main/res/mipmap-*/ic_launcher*.webp
+android/app/src/main/res/drawable-*/splashscreen_logo.png
+android/app/src/main/res/mipmap-anydpi-v26/
+android/app/src/main/res/values-night/
 
-# typescript
-*.tsbuildinfo
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md

@@ -5,6 +5,9 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -40,84 +43,121 @@ export const SignInScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.background,
-        padding: theme.spacing.md,
-      }}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={{
-        marginTop: theme.spacing.xl * 2,
-        marginBottom: theme.spacing.xl,
-      }}>
-        <Text style={{
-          fontSize: theme.typography.h1.fontSize,
-          fontWeight: '600',
-          color: theme.colors.text,
-          marginBottom: theme.spacing.sm,
-        }}>
-          Welcome Back
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../../assets/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={styles.welcomeContainer}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          Welcome to Bar Scout
         </Text>
-        <Text style={{
-          fontSize: theme.typography.body.fontSize,
-          color: theme.colors.textSecondary,
-        }}>
-          Sign in to continue
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          Your nightlife companion
         </Text>
       </View>
 
-      <View style={{
-        gap: theme.spacing.md,
-      }}>
+      <View style={styles.formContainer}>
         <Input
           placeholder="Email"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
+          leftIcon="email"
         />
         <Input
           placeholder="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          leftIcon="lock"
         />
         {error && (
-          <Text style={{
-            fontSize: theme.typography.caption.fontSize,
-            color: theme.colors.error,
-            textAlign: 'center',
-          }}>
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
             {error}
           </Text>
         )}
         <Button
-          title="Sign In"
+          title={loading ? 'Signing in...' : 'Sign In'}
           onPress={handleSignIn}
-          loading={loading}
+          disabled={loading}
+          style={styles.signInButton}
         />
       </View>
 
-      <TouchableOpacity
-        onPress={() => navigation.navigate('SignUp')}
-        style={{
-          marginTop: 'auto',
-          paddingVertical: theme.spacing.md,
-          alignItems: 'center',
-        }}>
-        <Text style={{
-          fontSize: theme.typography.body.fontSize,
-          color: theme.colors.textSecondary,
-        }}>
-          Don't have an account?{' '}
-          <Text style={{
-            color: theme.colors.primary,
-            fontWeight: '600',
-          }}>
-            Sign Up
-          </Text>
+      <View style={styles.footerContainer}>
+        <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
+          Don't have an account?
         </Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+          <Text style={[styles.linkText, { color: theme.colors.primary }]}>
+            {' Sign Up'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 };
+
+const { width } = Dimensions.get('window');
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginTop: 60,
+    marginBottom: 20,
+  },
+  logo: {
+    width: width * 0.4,
+    height: width * 0.4,
+    borderRadius: (width * 0.4) / 2,
+  },
+  welcomeContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  formContainer: {
+    gap: 16,
+  },
+  signInButton: {
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  footerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingBottom: 24,
+  },
+  footerText: {
+    fontSize: 14,
+  },
+  linkText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
