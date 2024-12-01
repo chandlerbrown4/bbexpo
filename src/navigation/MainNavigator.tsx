@@ -6,6 +6,8 @@
  *   ├─ Tab Navigator (MainTabs)
  *   │  ├─ Home Tab (Bar List)
  *   │  ├─ Events Tab
+ *   │  ├─ Map Tab
+ *   │  ├─ Profile Tab (Authenticated Users)
  *   │  └─ Account Tab
  *   ├─ Bar Details Screen
  *   ├─ Line Times Screen
@@ -40,19 +42,114 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SignInScreen } from '../screens/auth/SignInScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { LineTimesScreen } from '../screens/LineTimesScreen';
+import { MapScreen } from '../screens/MapScreen';
 import { RootStackParamList, MainTabParamList } from './types';
 import { useTheme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { ProfileScreen } from '../screens/ProfileScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const LineTimesStack = () => {
+  const theme = useTheme();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: '#fff',
+      }}>
+      <Stack.Screen
+        name="LineTimes"
+        component={LineTimesScreen}
+        options={{ title: 'Line Times' }}
+      />
+      <Stack.Screen
+        name="AddLineTime"
+        component={AddLineTimeScreen}
+        options={{ title: 'Report Line Time' }}
+      />
+      <Stack.Screen
+        name="BarDetails"
+        component={BarDetailsScreen}
+        options={{ title: 'Bar Details' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+const EventsStack = () => {
+  const theme = useTheme();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: '#fff',
+      }}>
+      <Stack.Screen
+        name="Events"
+        component={EventsScreen}
+        options={{ title: 'Events' }}
+      />
+      <Stack.Screen
+        name="BarDetails"
+        component={BarDetailsScreen}
+        options={{ title: 'Bar Details' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+const MapStack = () => {
+  const theme = useTheme();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: '#fff',
+      }}>
+      <Stack.Screen
+        name="Map"
+        component={MapScreen}
+        options={{ title: 'Map' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+const ProfileStack = () => {
+  const theme = useTheme();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: '#fff',
+      }}>
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: 'Profile' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
 const TabNavigator = () => {
   const theme = useTheme();
+  const { user } = useAuth();
   
   return (
     <Tab.Navigator
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: {
@@ -81,7 +178,7 @@ const TabNavigator = () => {
       }}>
       <Tab.Screen
         name="NearbyBars"
-        component={LineTimesScreen}
+        component={LineTimesStack}
         options={{
           title: 'Nearby Bars',
           tabBarIcon: ({ color, size }) => (
@@ -91,7 +188,7 @@ const TabNavigator = () => {
       />
       <Tab.Screen
         name="Events"
-        component={EventsScreen}
+        component={EventsStack}
         options={{
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="calendar" size={size} color={color} />
@@ -99,9 +196,30 @@ const TabNavigator = () => {
         }}
       />
       <Tab.Screen
+        name="Map"
+        component={MapStack}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="map" size={size} color={color} />
+          ),
+        }}
+      />
+      {user && (
+        <Tab.Screen
+          name="Profile"
+          component={ProfileStack}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="account" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+      <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
+          headerShown: true,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="cog" size={size} color={color} />
           ),
@@ -168,6 +286,11 @@ export const MainNavigator = () => {
             name="AddLineTime"
             component={AddLineTimeScreen}
             options={{ title: 'Add Line Time' }}
+          />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileStack}
+            options={{ title: 'Profile', headerShown: false }}
           />
         </>
       ) : (

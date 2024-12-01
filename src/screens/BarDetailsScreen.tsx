@@ -1,3 +1,5 @@
+import { calculateDistance } from '../services/location';
+
 /**
  * BarDetailsScreen - Individual Bar Information Screen
  * 
@@ -24,7 +26,7 @@
  * - Uses useLocation hook for fetching user location
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -42,8 +44,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
 import { useNearbyBars } from '../hooks/useNearbyBars';
 import { useSpecials } from '../hooks/useSpecials';
-import { useLocation } from '../hooks/useLocation';
+import { useLocation } from '../context/LocationContext';
 import { useBarHours } from '../hooks/useBarHours';
+import { useLineTime } from '../hooks/useLineTime';
 import { SpecialsList } from '../components/SpecialsList';
 import { useTheme } from '../theme/theme';
 
@@ -67,34 +70,17 @@ export const BarDetailsScreen: React.FC = () => {
   const { barId } = route.params;
   const [activeTab, setActiveTab] = useState<'info' | 'specials'>('info');
   const { location } = useLocation();
-  const { hours, loading: hoursLoading, error, fetchHours, formatHours } = useBarHours();
-  const { bars, loading: barsLoading } = useNearbyBars({
-    userLatitude: location?.latitude ?? 36.1584,
-    userLongitude: location?.longitude ?? -81.1476,
-    maxDistance: 10000
-  });
-
-  const [bar, setBar] = useState<any>(null);
+  const { lineTimes, loading: lineTimesLoading, error: lineTimesError, refreshLineTimes } = useLineTime();
+  const { hours, loading: hoursLoading, error: hoursError } = useBarHours(barId);
+  const { bars, loading: barsLoading } = useNearbyBars();
+  
+  const bar = bars.find(b => b.id === barId);
   const { specials, loading: specialsLoading, fetchSpecials } = useSpecials();
-
-  useEffect(() => {
-    const fetchBar = async () => {
-      if (!barId) return;
-      
-      const foundBar = bars.find((b) => b.id === barId);
-      if (foundBar) {
-        setBar(foundBar);
-      }
-    };
-
-    fetchBar();
-  }, [barId, bars]);
 
   useEffect(() => {
     if (!barId) return;
     
     fetchSpecials(barId);
-    fetchHours(barId);
   }, [barId]);
 
   const handleDirections = () => {
@@ -108,6 +94,16 @@ export const BarDetailsScreen: React.FC = () => {
       Linking.openURL(url);
     }
   };
+
+  const distance = useMemo(() => {
+    if (!location || !bar) return null;
+    return calculateDistance(
+      location.latitude,
+      location.longitude,
+      bar.latitude,
+      bar.longitude
+    );
+  }, [location, bar]);
 
   const styles = StyleSheet.create({
     container: {
@@ -341,13 +337,13 @@ export const BarDetailsScreen: React.FC = () => {
                   <ActivityIndicator size="small" color={theme.colors.primary} />
                   <Text style={styles.loadingText}>Loading hours...</Text>
                 </View>
-              ) : error ? (
-                <Text style={styles.errorText}>{error}</Text>
+              ) : hoursError ? (
+                <Text style={styles.errorText}>{hoursError}</Text>
               ) : hours.length > 0 ? (
-                formatHours(hours).map((hour) => (
-                  <View key={hour.dayOfWeek} style={styles.hourRow}>
-                    <Text style={styles.dayText}>{DAY_MAP[hour.dayOfWeek]}</Text>
-                    <Text style={styles.hoursText}>{`${hour.openTime} - ${hour.closeTime}`}</Text>
+                hours.map((hour) => (
+                  <View key={hour.day_of_week} style={styles.hourRow}>
+                    <Text style={styles.dayText}>{DAY_MAP[hour.day_of_week]}</Text>
+                    <Text style={styles.hoursText}>{`${hour.open} - ${hour.close}`}</Text>
                   </View>
                 ))
               ) : (

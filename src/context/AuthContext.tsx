@@ -58,16 +58,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getUserWithProfile = async (userId: string): Promise<User | null> => {
     try {
+      
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        throw profileError;
+      }
+
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      
+      if (userError) {
+        console.error('User fetch error:', userError);
+        throw userError;
+      }
+
 
       return {
         id: user.id,
@@ -75,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile: profile || undefined,
       };
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error in getUserWithProfile:', error);
       return null;
     }
   };
@@ -132,31 +142,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('You must be 13 or older to use this app');
       }
 
+      
       // Create auth user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        console.error('Signup error:', signUpError);
+        throw signUpError;
+      }
 
       if (!data.user) throw new Error('No user returned from sign up');
 
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: data.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          date_of_birth: dateOfBirth.toISOString().split('T')[0],
-        });
+      const userId = data.user.id;
+      // Start a Supabase transaction for all inserts
+      const { error: transactionError } = await supabase.rpc('create_user_records', {
+        user_id: userId,
+        first_name: firstName,
+        last_name: lastName,
+        date_of_birth: dateOfBirth.toISOString().split('T')[0],
+      });
 
-      if (profileError) {
-        // Attempt to clean up auth user if profile creation fails
+      if (transactionError) {
+        console.error('Transaction error:', transactionError);
+        // Attempt to clean up auth user if record creation fails
         await supabase.auth.signOut();
-        throw profileError;
+        throw transactionError;
       }
+
+
     } catch (error) {
+      console.error('Error in signUp:', error);
+      // Clean up any partial data if possible
+      await supabase.auth.signOut();
       throw error;
     }
   };

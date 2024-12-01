@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { calculateDistance } from '../services/location';
+import { useLocation } from '../context/LocationContext';
 
 export interface Bar {
   id: string;
@@ -14,22 +15,15 @@ export interface Bar {
   description?: string;
 }
 
-interface UseNearbyBarsProps {
-  userLatitude: number;
-  userLongitude: number;
-  maxDistance?: number; // in miles
-}
-
-export const useNearbyBars = ({ 
-  userLatitude, 
-  userLongitude, 
-  maxDistance = 20 
-}: UseNearbyBarsProps) => {
+export const useNearbyBars = (maxDistance: number = 20) => {
+  const { location } = useLocation();
   const [bars, setBars] = useState<Bar[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchNearbyBars = async () => {
+    if (!location) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -53,8 +47,8 @@ export const useNearbyBars = ({
         .map((bar) => ({
           ...bar,
           distance: calculateDistance(
-            userLatitude,
-            userLongitude,
+            location.latitude,
+            location.longitude,
             bar.latitude,
             bar.longitude
           ),
@@ -72,12 +66,12 @@ export const useNearbyBars = ({
 
   useEffect(() => {
     fetchNearbyBars();
-  }, [userLatitude, userLongitude]);
+  }, [location]);
 
   return {
     bars,
     loading,
     error,
-    refetch: fetchNearbyBars
+    refreshBars: fetchNearbyBars
   };
 };

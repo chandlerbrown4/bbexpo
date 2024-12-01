@@ -5,6 +5,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useColorScheme } from 'react-native';
 import { AuthProvider } from './src/context/AuthContext';
 import { EventsProvider } from './src/context/EventsContext';
+import { LocationProvider } from './src/context/LocationContext';
+import { ReputationProvider } from './src/context/ReputationContext';
 import { MainNavigator } from './src/navigation/MainNavigator';
 import { darkTheme, lightTheme } from './src/theme/theme';
 
@@ -46,7 +48,11 @@ export default function App() {
         <NavigationContainer theme={colorScheme === 'dark' ? customDarkTheme : customLightTheme}>
           <AuthProvider>
             <EventsProvider>
-              <MainNavigator />
+              <LocationProvider>
+                <ReputationProvider>
+                  <MainNavigator />
+                </ReputationProvider>
+              </LocationProvider>
             </EventsProvider>
           </AuthProvider>
         </NavigationContainer>

@@ -14,10 +14,6 @@ export const developmentConfig = {
       latitude: 36.1584,
       longitude: -81.1476,
     },
-    sanFrancisco: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-    },
     charlotte: {
       latitude: 35.2271,
       longitude: -80.8431,

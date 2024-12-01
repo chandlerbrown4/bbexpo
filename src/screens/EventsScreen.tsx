@@ -38,6 +38,7 @@ import { useEvents, Event as EventType } from '../hooks/useEvents';
 import { useTheme } from '../theme/theme';
 import { format } from 'date-fns';
 import { RootStackParamList } from '../navigation/types';
+import { useAuth } from '../context/AuthContext';
 
 type EventsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -46,201 +47,170 @@ interface EventDisplayProps {
   onPress: (eventId: string) => void;
 }
 
-export const EventsScreen: React.FC = () => {
+const EventDisplay: React.FC<EventDisplayProps> = ({ event, onPress }) => {
   const theme = useTheme();
-  const navigation = useNavigation<EventsScreenNavigationProp>();
-  const { events, loading, error, refetch } = useEvents();
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'weekend'>('all');
-
-  useEffect(() => {
-    refetch();
-  }, []);
-
+  
   const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.colors.background,
-    },
-    filterContainer: {
-      flexDirection: 'row',
-      padding: theme.spacing.md,
-      gap: theme.spacing.sm,
-      backgroundColor: theme.colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    },
-    filterButton: {
-      paddingVertical: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.borderRadius.full,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.background,
-    },
-    selectedFilter: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    },
-    filterText: {
-      fontSize: theme.typography.sizes.sm,
-      color: theme.colors.text,
-      fontWeight: theme.typography.weights.medium,
-    },
-    selectedFilterText: {
-      color: theme.colors.white,
-      fontWeight: theme.typography.weights.semibold,
-    },
-    listContent: {
-      padding: theme.spacing.md,
-    },
-    eventCard: {
+    card: {
       backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.md,
-      marginBottom: theme.spacing.md,
-      overflow: 'hidden',
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
       elevation: 2,
-      shadowColor: theme.colors.shadow,
+      shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
     },
-    eventImage: {
-      width: '100%',
-      height: 200,
-      resizeMode: 'cover',
-    },
-    eventContent: {
-      padding: theme.spacing.md,
-    },
-    eventTitle: {
+    title: {
       fontSize: theme.typography.sizes.lg,
-      fontWeight: theme.typography.weights.bold,
+      fontWeight: 'bold',
       color: theme.colors.text,
-      marginBottom: theme.spacing.xs,
+      marginBottom: 4,
     },
     barName: {
       fontSize: theme.typography.sizes.md,
-      color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.xs,
+      color: theme.colors.primary,
+      marginBottom: 4,
     },
-    eventDate: {
+    date: {
       fontSize: theme.typography.sizes.sm,
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.sm,
+      marginBottom: 4,
     },
-    eventDescription: {
-      fontSize: theme.typography.sizes.md,
-      color: theme.colors.text,
-      marginBottom: theme.spacing.sm,
+    description: {
+      fontSize: theme.typography.sizes.sm,
+      color: theme.colors.textSecondary,
     },
   });
 
-  const handleRefresh = async () => {
+  return (
+    <TouchableOpacity style={styles.card} onPress={() => onPress(event.id)}>
+      <Text style={styles.title}>{event.name}</Text>
+      <Text style={styles.barName}>{event.bar?.name}</Text>
+      <Text style={styles.date}>{format(new Date(event.date), 'EEE, MMM d • h:mm a')}</Text>
+      {event.description && (
+        <Text style={styles.description} numberOfLines={2}>
+          {event.description}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+export const EventsScreen: React.FC = () => {
+  const theme = useTheme();
+  const navigation = useNavigation<EventsScreenNavigationProp>();
+  const { events, loading, error, fetchEvents, refetch } = useEvents();
+  const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'weekend'>('all');
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
   };
 
+  const handleEventPress = (eventId: string) => {
+    const event = events.find(e => e.id === eventId);
+    if (event?.bar_id) {
+      navigation.navigate('BarDetails', { barId: event.bar_id });
+    }
+  };
+
   const filterEvents = (events: EventType[]) => {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const weekend = isWeekend(now);
 
     switch (selectedFilter) {
       case 'today':
-        return events.filter((event) => event.date === today);
+        return events.filter((event) => event.date && event.date.startsWith(today));
       case 'week':
         const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         return events.filter(
-          (event) => new Date(event.date) <= nextWeek && new Date(event.date) >= now
+          (event) => event.date && new Date(event.date) <= nextWeek && new Date(event.date) >= now
         );
       case 'weekend':
         return events.filter((event) => {
-          const eventDate = new Date(event.date);
-          return isWeekend(eventDate);
+          const eventDate = event.date ? new Date(event.date) : null;
+          return eventDate && isWeekend(eventDate);
         });
       default:
         return events;
     }
   };
 
-  const isWeekend = (date: Date) => {
-    const day = date.getDay();
-    return day === 5 || day === 6; 
-  };
-
-  const renderEvent = ({ item }: { item: EventType }) => (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate('BarDetails', { barId: item.bar_id })}
-      activeOpacity={0.7}>
-      <View style={styles.eventContent}>
-        <Text style={styles.eventTitle}>{item.name || 'Untitled Event'}</Text>
-        <Text style={styles.barName}>{item.bar?.name || 'Unknown Venue'}</Text>
-        <Text style={styles.eventDate}>
-          {format(new Date(item.date), 'EEE, MMM d • h:mm a')}
-        </Text>
-        {item.description && (
-          <Text style={styles.eventDescription} numberOfLines={2}>
-            {item.description}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    centered: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    listContent: {
+      padding: theme.spacing.md,
+    },
+    fab: {
+      position: 'absolute',
+      bottom: theme.spacing.md,
+      right: theme.spacing.md,
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    fabText: {
+      fontSize: theme.typography.sizes.lg,
+      color: theme.colors.white,
+    },
+  });
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={{ color: theme.colors.error }}>Error: {error}</Text>
+      </View>
+    );
+  }
+
+  if (events.length === 0) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={{ color: theme.colors.textSecondary }}>No upcoming events found nearby</Text>
+      </View>
+    );
+  }
+
+  const filteredEvents = filterEvents(events);
+
   return (
     <View style={styles.container}>
-      <View style={styles.filterContainer}>
-        {(['all', 'today', 'week', 'weekend'] as const).map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[
-              styles.filterButton,
-              selectedFilter === filter && styles.selectedFilter,
-            ]}
-            onPress={() => setSelectedFilter(filter)}
-            activeOpacity={0.7}>
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === filter && styles.selectedFilterText,
-              ]}>
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <FlatList
-        data={filterEvents(events)}
-        renderItem={renderEvent}
+        data={filteredEvents}
+        renderItem={({ item }) => (
+          <EventDisplay event={item} onPress={handleEventPress} />
+        )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        showsVerticalScrollIndicator={false}
       />
     </View>
   );

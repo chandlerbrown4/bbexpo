@@ -1,68 +1,107 @@
 /**
- * LineTimesScreen - Nearby Bars with Line Times
+ * Line Times Screen
+ * 
+ * Displays a list of bars with their current line times and allows users to view and vote on reports.
  * 
  * Layout:
- * ┌─────────────────────────────┐
- * │     Nearby Bars (Title)     │
- * ├─────────────────────────────┤
- * │ ┌─────────────────────────┐ │
- * │ │    Bar Card             │ │
- * │ │ ┌───────┐              │ │
- * │ │ │  Bar  │ Bar Name     │ │
- * │ │ │ Icon  │ Distance     │ │
- * │ │ └───────┘              │ │
- * │ │ Current Line: Medium    │ │
- * │ │ Wait Time: ~15 mins    │ │
- * │ │ Updated: 2 mins ago    │ │
- * │ └─────────────────────────┘ │
- * │ ┌─────────────────────────┐ │
- * │ │    Bar Card             │ │
- * │ │    ...                  │ │
- * │ └─────────────────────────┘ │
- * └─────────────────────────────┘
+ * ┌─────────────────────────────────┐
+ * │ 🔍 Search Bars                  │ <- SearchBar
+ * ├─────────────────────────────────┤
+ * │ ┌─────────────────────────────┐ │
+ * │ │ Bar Name           🕒 5 min  │ │ <- BarCard
+ * │ │ 📍 0.5 mi                    │ │
+ * │ │ ├─────────────────────────┤ │ │
+ * │ │ │ 👤 John - 4min (30m ago)│ │ │ <- LineTimeReport
+ * │ │ │              [👍] [👎]  │ │ │
+ * │ │ │ ▼                       │ │ │ <- ExpandButton
+ * │ │ └─────────────────────────┘ │ │
+ * │ └─────────────────────────────┘ │
+ * │                                 │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ Bar Name          🕒 15 min │ │
+ * │ │ 📍 1.2 mi                    │ │
+ * │ │ ├─────────────────────────┤ │ │
+ * │ │ │ ⭐ Jane - 15min (5m ago)│ │ │
+ * │ │ │              [👍] [👎]  │ │ │
+ * │ │ │ ▼                       │ │ │
+ * │ │ │ 👤 Bob - 12min (15m ago)│ │ │ <- Expanded Reports
+ * │ │ │              [👍] [👎]  │ │ │
+ * │ │ │ 👑 Amy - 18min (20m ago)│ │ │
+ * │ │ │              [👍] [👎]  │ │ │
+ * │ │ └─────────────────────────┘ │ │
+ * │ └─────────────────────────────┘ │
+ * └─────────────────────────────────┘
  * 
- * Core Functionality:
- * - Displays bars within 20 miles of user's location
- * - Shows current line status for each bar
- * - Real-time line time updates
- * - Pull-to-refresh functionality
- * - Distance-based sorting (nearest first)
- * - Navigation to bar details
- * - Add line time capability
+ * Input Data:
+ * - User Context:
+ *   - userId: string (UUID of current user)
+ *   - userLocation: { latitude: number, longitude: number }
+ * - Query Params:
+ *   - searchQuery: string (optional)
+ *   - maxDistance: number (in miles)
  * 
- * Data Flow:
- * - Uses useNearbyBars hook for location-based bar filtering
- * - Uses useLineTime hook for line time data
- * - Uses useLocation hook for user's position
- * - Auto-refreshes on screen focus
- * - Filters bars > 20 miles away
+ * Database Queries:
+ * 1. Nearby Bars (useNearbyBars):
+ *    SELECT FROM bars WHERE
+ *    - distance < maxDistance
+ *    - name ILIKE searchQuery
+ *    - ORDER BY distance
  * 
- * Bar Card Display:
- * - Bar name and distance
- * - Current line status (No Line → Very Long Line)
- * - Average wait time from recent submissions
- * - Time elapsed since last update
- * - Color-coded wait times:
- *   • Green: No line/Short
- *   • Orange: Medium
- *   • Red: Long/Very Long
+ * 2. Recent Line Times (useRecentLineTimes):
+ *    SELECT FROM recent_line_times WHERE
+ *    - timestamp > now() - interval '2 hours'
+ *    - ORDER BY timestamp DESC
+ *    Includes:
+ *    - reporter_name, reporter_status
+ *    - upvotes, downvotes
+ *    - user's vote if exists
  * 
- * Line Time Calculation:
- * - Only considers submissions from last 2 hours
- * - Uses weighted average system:
- *   • Newer posts have higher weight (exponential decay)
- *   • Weight = e^(-0.5 * ageInHours)
- *   • Final time = Σ(weight * minutes) / Σ(weight)
- * - Default wait times if no minutes specified:
- *   • No Line: 0 mins
- *   • Short: 5 mins
- *   • Medium: 10 mins
- *   • Long: 25 mins
- *   • Very Long: 35 mins
+ * Vote Interactions:
+ * 1. Insert into line_time_votes:
+ *    - line_time_id: uuid
+ *    - user_id: uuid
+ *    - vote_type: 'up' | 'down'
+ *    - created_at: timestamp
+ * 
+ * 2. Update user_reputation:
+ *    - total_votes_received
+ *    - positive_votes_received
+ *    - reputation_points (+1 for up, -1 for down)
+ * 
+ * Components:
+ * - SearchBar: Filters bars by name
+ * - BarCard: Shows bar info and current estimated wait time
+ *   - Bar name and distance
+ *   - Current estimated wait time (top right)
+ *   - Most recent line time report
+ *   - Expandable list of older reports
+ * - LineTimeReport: Individual wait time report
+ *   - Reporter status emoji (👤regular, ⭐trusted, 👑expert)
+ *   - Reporter name
+ *   - Reported wait time
+ *   - Time ago
+ *   - Voting buttons (upvote/downvote)
+ * 
+ * Features:
+ * - Pull to refresh
+ * - Location-based sorting
+ * - Time-weighted wait time estimation
+ * - Vote-based report reliability
+ * - Expert status indicators
+ * 
+ * Real-time Updates:
+ * - Supabase realtime subscription to line_time_posts
+ * - Automatic refresh on new reports
+ * - Vote counts update instantly
+ * 
+ * Error Handling:
+ * - Location services disabled
+ * - Network connectivity issues
+ * - Database query failures
+ * - Vote submission errors
  */
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -71,307 +110,436 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useNavigationState } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNearbyBars } from '../hooks/useNearbyBars';
-import { useLineTime } from '../hooks/useLineTime';
-import { useLocation } from '../hooks/useLocation';
+import { useRecentLineTimes } from '../hooks/useRecentLineTimes';
+import { useLocation } from '../context/LocationContext';
+import { useReputation } from '../context/ReputationContext';
 import { theme as defaultTheme, useTheme } from '../theme/theme';
 import { calculateDistance } from '../services/location';
+import { calculateEstimatedWaitTime, formatLineTimeReport, EXPERT_STATUS_EMOJI } from '../utils/lineTimeUtils';
 
 interface BarWithLineTime {
   id: string;
   name: string;
   distance: number;
-  lastLineTime?: {
-    line: string;
-    averageMinutes: number;
-    numSubmissions: number;
-    latestTimestamp: string;
+  estimatedWait?: {
+    minutes: number;
+    category: string;
   };
+  recentReports: Array<{
+    id: string;
+    minutes: number;
+    timestamp: string;
+    reporter_name: string;
+    reporter_status: 'regular' | 'trusted' | 'expert';
+    user_vote?: 'up' | 'down';
+  }>;
 }
 
 export const LineTimesScreen: React.FC = () => {
   const theme = useTheme();
   const navigation = useNavigation();
+  const route = useRoute();
+  const navState = useNavigationState(state => state);
   const { location } = useLocation();
-  const { bars, loading: barsLoading, error: barsError } = useNearbyBars({
-    userLatitude: location?.latitude ?? 36.1584,
-    userLongitude: location?.longitude ?? -81.1476,
-    maxDistance: 20,
-  });
-  const { lineTimes, loading: lineTimesLoading, error: lineTimesError, fetchLineTimes, getLineCategoryFromMinutes } = useLineTime();
+  const { profile, barReports, voteOnLineTime } = useReputation();
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedBar, setExpandedBar] = useState<string | null>(null);
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    listContainer: {
-      padding: 16,
-    },
-    barCard: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.lg,
-      marginHorizontal: theme.spacing.md,
-      marginVertical: theme.spacing.sm,
-      padding: theme.spacing.md,
-      elevation: 2,
-      shadowColor: theme.colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-    },
-    barHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing.sm,
-    },
-    barName: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.text,
-      flex: 1,
-    },
-    distance: {
-      fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginLeft: theme.spacing.sm,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    lineTimeContainer: {
-      marginTop: theme.spacing.sm,
-    },
-    lineTimeInfo: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing.xs,
-    },
-    lineStatus: {
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    waitTime: {
-      fontSize: 16,
-      fontWeight: '500',
-    },
-    submissionInfo: {
-      fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginBottom: 2,
-    },
-    timestamp: {
-      fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.sm,
-    },
-    noLineTime: {
-      fontSize: 16,
-      color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.sm,
-      fontStyle: 'italic',
-    },
-    addButton: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: theme.spacing.sm,
-      borderRadius: theme.borderRadius.md,
-      borderWidth: 1,
-      borderColor: theme.colors.primary,
-      marginTop: theme.spacing.xs,
-    },
-    addButtonText: {
-      fontSize: 14,
-      color: theme.colors.primary,
-      marginLeft: theme.spacing.xs,
-      fontWeight: '500',
-    },
-    fab: {
-      position: 'absolute',
-      margin: 16,
-      right: 0,
-      bottom: 0,
-      backgroundColor: theme.colors.primary,
-    },
-  });
+  const { bars, loading: barsLoading, error: barsError, refreshBars } = useNearbyBars(20);
+  const { recentLineTimes, loading: lineTimesLoading, error: lineTimesError, refreshLineTimes } = useRecentLineTimes();
+
+  const [recentLineTimesState, setRecentLineTimesState] = useState(recentLineTimes);
 
   useEffect(() => {
-    fetchLineTimes();
-  }, []);
+    setRecentLineTimesState(recentLineTimes);
+  }, [recentLineTimes]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      const refreshData = async () => {
-        await fetchLineTimes();
-      };
-      refreshData();
-    }, [fetchLineTimes])
-  );
-
-  const getTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const postTime = new Date(timestamp);
-    const diffInMinutes = Math.floor((now.getTime() - postTime.getTime()) / 60000);
-
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) {
-      const hours = Math.floor(diffInMinutes / 60);
-      return `${hours}h ago`;
+  useEffect(() => {
+    const currentRoute = navState.routes[navState.routes.length - 1];
+    if (currentRoute?.params?.payload?.refresh) {
+      refreshLineTimes();
+      refreshBars();
     }
-    const days = Math.floor(diffInMinutes / 1440);
-    return `${days}d ago`;
-  };
+  }, [navState]);
 
-  const getAverageLineTime = (barLineTimes: typeof lineTimes) => {
-    const now = new Date();
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-
-    const recentLineTimes = barLineTimes.filter(lt => {
-      const timestamp = new Date(lt.timestamp);
-      return timestamp >= twoHoursAgo;
-    });
-
-    if (recentLineTimes.length === 0) {
-      return null;
+  useEffect(() => {
+    if (route.params?.refresh) {
+      refreshLineTimes();
+      refreshBars();
     }
+  }, [route.params?.refresh]);
 
-    const totalWeight = recentLineTimes.reduce((sum, lt) => {
-      const ageInHours = (now.getTime() - new Date(lt.timestamp).getTime()) / (60 * 60 * 1000);
-      const weight = Math.exp(-0.5 * ageInHours);
-      return sum + weight;
-    }, 0);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refreshLineTimes(), refreshBars()]);
+    setRefreshing(false);
+  }, [refreshLineTimes, refreshBars]);
 
-    const weightedAverageMinutes = recentLineTimes.reduce((sum, lt) => {
-      const ageInHours = (now.getTime() - new Date(lt.timestamp).getTime()) / (60 * 60 * 1000);
-      const weight = Math.exp(-0.5 * ageInHours);
-      return sum + weight * lt.minutes;
-    }, 0) / totalWeight;
-
-    const lineStatusCount: { [key: string]: number } = {};
-    recentLineTimes.forEach(lt => {
-      lineStatusCount[lt.line] = (lineStatusCount[lt.line] || 0) + 1;
-    });
-    const mostCommonLine = Object.entries(lineStatusCount)
-      .sort((a, b) => b[1] - a[1])[0][0];
-
-    return {
-      line: mostCommonLine,
-      averageMinutes: weightedAverageMinutes,
-      numSubmissions: recentLineTimes.length,
-      latestTimestamp: recentLineTimes[0].timestamp,
-    };
-  };
-
-  const getWaitTimeColor = (minutes: number): string => {
-    if (minutes <= 0) return theme.colors.success;
-    if (minutes < 5) return '#4CAF50';  
-    if (minutes < 15) return '#FFA726';  
-    if (minutes < 30) return '#FF7043';  
-    return '#E53935';  
-  };
-
-  const formatDistance = (distance: number) => {
-    return `${distance.toFixed(1)} mi`;
-  };
-
-  const barsWithLineTimes: BarWithLineTime[] = bars.map(bar => {
-    const barLineTimes = lineTimes
-      .filter(lt => lt.bar_id === bar.id)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    const averageLineTime = getAverageLineTime(barLineTimes);
+  const processedBars: BarWithLineTime[] = bars.map(bar => {
+    const barLineTimes = recentLineTimesState.filter(lt => lt.bar_id === bar.id);
+    const estimatedWait = calculateEstimatedWaitTime(barLineTimes);
 
     return {
       id: bar.id,
       name: bar.name,
-      distance: bar.distance || 0,
-      lastLineTime: averageLineTime || undefined,
+      distance: bar.distance,
+      estimatedWait,
+      recentReports: barLineTimes.map(lt => ({
+        id: lt.id,
+        minutes: lt.minutes,
+        timestamp: lt.timestamp,  // Use timestamp instead of created_at
+        reporter_name: lt.reporter_name,
+        reporter_status: lt.reporter_status,
+        user_vote: lt.user_vote,
+      })),
     };
   });
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([
-      fetchLineTimes(),
-    ]);
-    setRefreshing(false);
+  const handleVote = async (reportId: string, voteType: 'up' | 'down') => {
+    try {
+      setRecentLineTimesState(prev => 
+        prev.map(report => {
+          if (report.id === reportId) {
+            return {
+              ...report,
+              user_vote: voteType
+            };
+          }
+          return report;
+        })
+      );
+
+      await voteOnLineTime(reportId, voteType);
+    } catch (err) {
+      setRecentLineTimesState(recentLineTimes);
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit vote');
+    }
   };
 
-  const renderBar = ({ item }: { item: BarWithLineTime }) => (
-    <TouchableOpacity
-      style={[styles.barCard, { borderLeftWidth: 4, borderLeftColor: item.lastLineTime ? getWaitTimeColor(item.lastLineTime.averageMinutes) : theme.colors.border }]}
-      onPress={() => navigation.navigate('BarDetails', { barId: item.id })}>
-      <View style={styles.barHeader}>
-        <Text style={styles.barName}>{item.name}</Text>
-        <Text style={styles.distance}>{formatDistance(item.distance)}</Text>
-      </View>
+  const renderBar = ({ item: bar }: { item: BarWithLineTime }) => {
+    const isExpanded = expandedBar === bar.id;
+    const barReport = barReports.find(report => report.bar_id === bar.id);
+    const canAddLineTime = !barReport || 
+      (Date.now() - new Date(barReport.last_report_at).getTime() > 5 * 60 * 1000);
 
-      <View style={styles.lineTimeContainer}>
-        {item.lastLineTime ? (
-          <>
-            <View style={styles.lineTimeInfo}>
-              <Text style={[styles.lineStatus, { color: getWaitTimeColor(item.lastLineTime.averageMinutes) }]}>
-                {getLineCategoryFromMinutes(item.lastLineTime.averageMinutes)}
+    return (
+      <TouchableOpacity
+        style={[styles.barCard, { borderColor: theme.colors.border }]}
+        onPress={() => navigation.navigate('BarDetails', { barId: bar.id })}
+      >
+        <View style={styles.barHeader}>
+          <View style={styles.barInfo}>
+            <Text style={[styles.barName, { color: theme.colors.text }]}>{bar.name}</Text>
+            <Text style={[styles.distance, { color: theme.colors.textSecondary }]}>
+              {bar.distance.toFixed(1)} miles away
+            </Text>
+          </View>
+          {bar.estimatedWait && (
+            <View style={styles.waitInfo}>
+              <Text style={[styles.currentLineText, { color: theme.colors.text }]}>
+                {bar.estimatedWait.category}
               </Text>
-              <Text style={[styles.waitTime, { color: getWaitTimeColor(item.lastLineTime.averageMinutes) }]}>
-                {item.lastLineTime.averageMinutes.toFixed(0)} min wait
-              </Text>
+              {bar.estimatedWait.minutes > 0 && (
+                <Text style={[styles.waitTime, { color: theme.colors.primary }]}>
+                  ~{bar.estimatedWait.minutes} min
+                </Text>
+              )}
             </View>
-            <Text style={styles.submissionInfo}>
-              Based on {item.lastLineTime.numSubmissions} {item.lastLineTime.numSubmissions === 1 ? 'report' : 'reports'}
-            </Text>
-            <Text style={styles.timestamp}>
-              Last updated {getTimeAgo(item.lastLineTime.latestTimestamp)}
-            </Text>
-          </>
-        ) : (
-          <Text style={styles.noLineTime}>No recent line times</Text>
+          )}
+        </View>
+
+        {bar.recentReports.length > 0 && (
+          <View style={styles.recentReports}>
+            <View style={styles.reportHeader}>
+              <View style={styles.reportContent}>
+                <Text style={[styles.reportText, { color: theme.colors.text, flex: 1 }]}>
+                  {formatLineTimeReport(bar.recentReports[0])}
+                </Text>
+                <View style={styles.voteButtons}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.voteButton, 
+                      styles.upvoteButton,
+                      bar.recentReports[0].user_vote === 'up' && styles.votedButton,
+                      bar.recentReports[0].user_vote === 'down' && styles.disabledButton
+                    ]}
+                    onPress={() => handleVote(bar.recentReports[0].id, 'up')}
+                    disabled={bar.recentReports[0].user_vote === 'down'}
+                  >
+                    <MaterialCommunityIcons 
+                      name="thumb-up" 
+                      size={16} 
+                      color={bar.recentReports[0].user_vote === 'up' 
+                        ? theme.colors.primary 
+                        : bar.recentReports[0].user_vote === 'down'
+                        ? theme.colors.disabled
+                        : theme.colors.text
+                      } 
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.voteButton, 
+                      styles.downvoteButton,
+                      bar.recentReports[0].user_vote === 'down' && styles.votedButton,
+                      bar.recentReports[0].user_vote === 'up' && styles.disabledButton
+                    ]}
+                    onPress={() => handleVote(bar.recentReports[0].id, 'down')}
+                    disabled={bar.recentReports[0].user_vote === 'up'}
+                  >
+                    <MaterialCommunityIcons 
+                      name="thumb-down" 
+                      size={16} 
+                      color={bar.recentReports[0].user_vote === 'down' 
+                        ? theme.colors.error 
+                        : bar.recentReports[0].user_vote === 'up'
+                        ? theme.colors.disabled
+                        : theme.colors.text
+                      } 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setExpandedBar(isExpanded ? null : bar.id)}
+                style={styles.expandButton}
+              >
+                <MaterialCommunityIcons
+                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={24}
+                  color={theme.colors.text}
+                />
+              </TouchableOpacity>
+            </View>
+            
+            {isExpanded && bar.recentReports.slice(1).map((report) => (
+              <View key={report.id} style={styles.reportRow}>
+                <Text style={[styles.reportText, { color: theme.colors.textSecondary, flex: 1 }]}>
+                  {formatLineTimeReport(report)}
+                </Text>
+                <View style={styles.voteButtons}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.voteButton, 
+                      styles.upvoteButton,
+                      report.user_vote === 'up' && styles.votedButton,
+                      report.user_vote === 'down' && styles.disabledButton
+                    ]}
+                    onPress={() => handleVote(report.id, 'up')}
+                    disabled={report.user_vote === 'down'}
+                  >
+                    <MaterialCommunityIcons 
+                      name="thumb-up" 
+                      size={16} 
+                      color={report.user_vote === 'up' 
+                        ? theme.colors.primary 
+                        : report.user_vote === 'down'
+                        ? theme.colors.disabled
+                        : theme.colors.text
+                      } 
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.voteButton, 
+                      styles.downvoteButton,
+                      report.user_vote === 'down' && styles.votedButton,
+                      report.user_vote === 'up' && styles.disabledButton
+                    ]}
+                    onPress={() => handleVote(report.id, 'down')}
+                    disabled={report.user_vote === 'up'}
+                  >
+                    <MaterialCommunityIcons 
+                      name="thumb-down" 
+                      size={16} 
+                      color={report.user_vote === 'down' 
+                        ? theme.colors.error 
+                        : report.user_vote === 'up'
+                        ? theme.colors.disabled
+                        : theme.colors.text
+                      } 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.surface }]}
-          onPress={() => navigation.navigate('AddLineTime', { barId: item.id })}>
-          <MaterialCommunityIcons name="plus" size={20} color={theme.colors.primary} />
-          <Text style={styles.addButtonText}>Add Line Time</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        {canAddLineTime && (
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => navigation.navigate('AddLineTime', { barId: bar.id })}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+            <Text style={styles.addButtonText}>Add Line Time</Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
-  if (barsLoading && !refreshing) {
+  if (barsLoading || lineTimesLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
+  if (barsError || lineTimesError) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          {barsError || lineTimesError}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={barsWithLineTimes}
+        data={processedBars}
         renderItem={renderBar}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary}/>
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+          />
         }
       />
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  list: {
+    padding: 16,
+  },
+  barCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  barHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  barInfo: {
+    flex: 1,
+  },
+  waitInfo: {
+    alignItems: 'flex-end',
+  },
+  barName: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  distance: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  currentLineText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  waitTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  recentReports: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: defaultTheme.colors.border,
+  },
+  reportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reportContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reportText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  voteButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  voteButton: {
+    padding: 8,
+    borderRadius: 4,
+    marginHorizontal: 2,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  upvoteButton: {
+    borderColor: defaultTheme.colors.primary,
+    borderWidth: 1,
+  },
+  downvoteButton: {
+    borderColor: defaultTheme.colors.error,
+    borderWidth: 1,
+  },
+  votedButton: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderColor: defaultTheme.colors.disabled,
+  },
+  expandButton: {
+    padding: 4,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    padding: 16,
+  },
+});

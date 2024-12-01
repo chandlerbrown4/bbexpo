@@ -31,10 +31,17 @@ export const useEvents = (): UseEventsResult => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const fetchEvents = async (startDate: Date, endDate: Date) => {
+  const fetchEvents = async (startDate: Date = new Date(), endDate: Date = new Date()) => {
+    // Set endDate to 30 days from startDate
+    endDate.setDate(startDate.getDate() + 30);
+
     try {
       setLoading(true);
       setError(null);
+
+      // Log the input parameters
+      console.log('StartDate:', startDate);
+      console.log('EndDate:', endDate);
 
       // First fetch all events
       const { data: eventsData, error: fetchError } = await supabase
@@ -51,6 +58,7 @@ export const useEvents = (): UseEventsResult => {
         .order('date', { ascending: true });
 
       if (fetchError) throw fetchError;
+      console.log('Fetched events data:', eventsData);
 
       // Format events
       const formattedEvents = (eventsData || []).map(event => ({

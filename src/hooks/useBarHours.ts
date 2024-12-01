@@ -1,83 +1,58 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 
-export type BarHours = {
-  id: string;  // uuid
-  bar_id: string;  // uuid
-  day_of_week: number;  // int4
-  time: string;  // text, format: "11:00 AM - 11:00 PM"
-};
+interface BarHours {
+  id: string;
+  bar_id: string;
+  day_of_week: number;
+  time: string;
+}
 
-const DAY_MAP = {
-  0: 'Sunday',
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday'
-};
+interface FormattedHours {
+  day_of_week: number;
+  open: string;
+  close: string;
+}
 
-export type FormattedHours = {
-  dayOfWeek: number;
-  openTime: string;
-  closeTime: string;
-};
-
-export const useBarHours = () => {
-  const [hours, setHours] = useState<BarHours[]>([]);
-  const [loading, setLoading] = useState(false);
+export const useBarHours = (barId: string) => {
+  const [hours, setHours] = useState<FormattedHours[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHours = async (barId: string) => {
-    if (!barId) {
-      setError('No barId provided to fetchHours');
-      return;
-    }
+  const formatTimeString = (timeString: string): { open: string; close: string } => {
+    const [open, close] = timeString.split(' - ');
+    return { open, close };
+  };
 
+  const fetchHours = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const { data, error: supabaseError } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('hours')
         .select('*')
         .eq('bar_id', barId)
         .order('day_of_week');
 
-      if (supabaseError) {
-        setError(supabaseError.message);
-        return;
-      }
+      if (fetchError) throw fetchError;
 
-      if (!data || data.length === 0) {
-        setHours([]);
-        return;
-      }
+      const formattedHours = data?.map((hour: BarHours) => ({
+        day_of_week: hour.day_of_week,
+        ...formatTimeString(hour.time)
+      })) || [];
 
-      setHours(data);
+      setHours(formattedHours);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'Failed to fetch bar hours');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatHours = (hours: BarHours[]): FormattedHours[] => {
-    const formattedHours = hours.map((hour) => ({
-      dayOfWeek: hour.day_of_week,
-      openTime: hour.time.split(' - ')[0],
-      closeTime: hour.time.split(' - ')[1],
-    }));
+  useEffect(() => {
+    fetchHours();
+  }, [barId]);
 
-    return formattedHours;
-  };
-
-  return {
-    hours,
-    loading,
-    error,
-    fetchHours,
-    formatHours,
-  };
+  return { hours, loading, error, refreshHours: fetchHours };
 };
