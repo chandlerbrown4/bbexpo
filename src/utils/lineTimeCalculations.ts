@@ -30,33 +30,28 @@ export const EXPERT_STATUS_EMOJI = {
   expert: '👑',
 } as const;
 
-const TIME_DECAY_FACTOR = 0.8; // Reduces weight of older reports
-const VOTE_IMPACT_FACTOR = 0.2; // Impact of votes on the final weight
-const MAX_REPORT_AGE_HOURS = 4; // Reports older than this are ignored
+const TIME_DECAY_FACTOR = 0.8; 
+const VOTE_IMPACT_FACTOR = 0.2; 
+const MAX_REPORT_AGE_HOURS = 4; 
 
 export function calculateLineTimeWeight(report: RecentLineTime): number {
   const reportAge = new Date().getTime() - new Date(report.timestamp).getTime();
   const ageInHours = reportAge / (1000 * 60 * 60);
   
-  // Ignore old reports
   if (ageInHours > MAX_REPORT_AGE_HOURS) return 0;
   
-  // Calculate time decay (newer reports have more weight)
   const timeWeight = Math.pow(TIME_DECAY_FACTOR, ageInHours);
   
-  // Calculate vote impact (more upvotes = more weight)
   const totalVotes = report.upvotes + report.downvotes;
   const voteRatio = totalVotes > 0 ? report.upvotes / totalVotes : 0.5;
   const voteWeight = 1 + (voteRatio - 0.5) * VOTE_IMPACT_FACTOR;
   
-  // Combine weights with the report's base weight
   return report.weight * timeWeight * voteWeight;
 }
 
 export function estimateWaitTime(reports: RecentLineTime[]): { minutes: number; category: string } {
   if (!reports.length) return { minutes: 0, category: LINE_CATEGORIES.NO_LINE.label };
   
-  // Calculate weighted average
   let totalWeight = 0;
   let weightedSum = 0;
   
@@ -70,7 +65,6 @@ export function estimateWaitTime(reports: RecentLineTime[]): { minutes: number; 
   
   const estimatedMinutes = Math.round(weightedSum / totalWeight);
   
-  // Determine category based on estimated minutes
   let category = LINE_CATEGORIES.NO_LINE.label;
   if (estimatedMinutes > 30) category = LINE_CATEGORIES.VERY_LONG.label;
   else if (estimatedMinutes > 15) category = LINE_CATEGORIES.LONG.label;

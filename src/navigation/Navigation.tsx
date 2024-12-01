@@ -2,7 +2,6 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { HomeScreen } from '../screens/HomeScreen';
 import { EventsScreen } from '../screens/EventsScreen';
 import { AddLineTimeScreen } from '../screens/AddLineTimeScreen';
 import { AccountScreen } from '../screens/AccountScreen';

@@ -1,3 +1,74 @@
+/**
+ * Profile Screen
+ * 
+ * Displays user profile, reputation metrics, and bar reporting history.
+ * 
+ * Layout:
+ * ┌─────────────────────────────────┐
+ * │    ┌─────────────────┐         │
+ * │    │  Profile Image  │         │ <- Header
+ * │    └─────────────────┘         │
+ * │         Username                │
+ * │                                 │
+ * ├─────────────────────────────────┤
+ * │ ┌───────┐ ┌───────┐ ┌───────┐  │
+ * │ │ 150   │ │ 4.8★  │ │ 12    │  │ <- Stats
+ * │ │Reports│ │Rating │ │Badges │  │
+ * │ └───────┘ └───────┘ └───────┘  │
+ * ├─────────────────────────────────┤
+ * │ Badges                          │
+ * │ ┌────┐ ┌────┐ ┌────┐ ┌────┐   │
+ * │ │ 🎯 │ │ 🌟 │ │ 🎉 │ │ 📊 │   │ <- Badges
+ * │ └────┘ └────┘ └────┘ └────┘   │
+ * ├─────────────────────────────────┤
+ * │ Bar Expertise                   │
+ * │ ┌─────────────────────────┐    │
+ * │ │ Bar Name                │    │
+ * │ │ Reports: 25 | Rating: 4.9    │ <- Expertise
+ * │ └─────────────────────────┘    │
+ * │                                 │
+ * └─────────────────────────────────┘
+ * 
+ * Data Sources:
+ * 1. User Profile (useReputation):
+ *    - Basic info (name, avatar)
+ *    - Reputation metrics
+ *    - Earned badges
+ *    - Bar reporting history
+ * 
+ * Reputation Metrics:
+ * - Total Reports: Number of line time reports
+ * - Rating: Average accuracy rating (0-5)
+ * - Badges: Count of earned achievements
+ * 
+ * Badge Categories:
+ * - Accuracy: High rating consistency
+ * - Volume: Number of reports submitted
+ * - Streak: Consecutive days reporting
+ * - Special: Event-based achievements
+ * 
+ * Bar Expertise:
+ * - Most reported bars
+ * - Rating per bar
+ * - Report frequency
+ * - Accuracy metrics
+ * 
+ * Features:
+ * - Pull to refresh
+ * - Dynamic stats calculation
+ * - Interactive badges display
+ * - Bar-specific reputation tracking
+ * - Loading states and error handling
+ * 
+ * Components:
+ * - Header with profile image
+ * - Stats cards with metrics
+ * - Badge collection display
+ * - Bar expertise cards
+ * - Loading indicator
+ * - Error state display
+ */
+
 import React from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { useTheme } from '../theme/theme';

@@ -1,3 +1,69 @@
+/**
+ * Sign Up Screen
+ * 
+ * Handles new user registration with email, password, and profile information.
+ * 
+ * Layout:
+ * ┌─────────────────────────────────┐
+ * │           Bar Scout             │ <- Logo
+ * │                                 │
+ * │        Create Account           │ <- Title
+ * │                                 │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 📧 Email                    │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 👤 First Name               │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 👤 Last Name                │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 📅 Date of Birth            │ │ <- DatePicker
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 🔒 Password                 │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 🔒 Confirm Password         │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │                                 │
+ * │         [  Sign Up  ]          │ <- Button
+ * │                                 │
+ * │    Already have an account?     │
+ * │          Sign In →             │ <- Navigation Link
+ * └─────────────────────────────────┘
+ * 
+ * State:
+ * - email: string
+ * - firstName: string
+ * - lastName: string
+ * - password: string
+ * - confirmPassword: string
+ * - dateOfBirth: Date | null
+ * - error: string | null
+ * - loading: boolean
+ * 
+ * Validation:
+ * - All fields required
+ * - Password minimum 6 characters
+ * - Password matching
+ * - Valid email format
+ * 
+ * Authentication:
+ * - Uses AuthContext.signUp(userData)
+ * - Navigates to SignIn on success
+ * - Displays error messages on failure
+ * 
+ * Components:
+ * - KeyboardAvoidingView (adjusts for keyboard)
+ * - ScrollView (handles overflow content)
+ * - Input (form fields)
+ * - DateTimePicker (native date selection)
+ * - Button (sign up action)
+ * - TouchableOpacity (navigation to sign in)
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -43,7 +109,6 @@ export const SignUpScreen: React.FC = () => {
       setError(null);
       setLoading(true);
 
-      // Validation
       if (!email || !firstName || !lastName || !password || !confirmPassword || !dateOfBirth) {
         throw new Error('All fields are required');
       }
@@ -56,7 +121,6 @@ export const SignUpScreen: React.FC = () => {
         throw new Error('Password must be at least 6 characters');
       }
 
-      // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         throw new Error('Please enter a valid email address');
@@ -70,7 +134,6 @@ export const SignUpScreen: React.FC = () => {
         dateOfBirth,
       });
       
-      // Show success message and navigate to login screen
       Alert.alert('Account created successfully! Please sign in.');
       navigation.navigate('SignIn');
       

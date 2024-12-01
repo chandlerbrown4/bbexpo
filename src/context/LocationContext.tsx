@@ -24,7 +24,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       setErrorMsg(null);
       
-      // Use development location if configured
       if (developmentConfig.useDevLocation) {
         console.log('Using development location:', developmentConfig.devLocation);
         setLocation(developmentConfig.devLocation);
@@ -63,15 +62,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Request location permission when the component mounts
   useEffect(() => {
     requestLocationPermission();
   }, []);
 
-  // Log state changes for debugging
-  useEffect(() => {
-    console.log('Location state:', { location, loading, errorMsg });
-  }, [location, loading, errorMsg]);
 
   return (
     <LocationContext.Provider value={{ location, errorMsg, loading, requestLocationPermission }}>

@@ -25,22 +25,19 @@ export const useLineTime = (barId?: string) => {
   const [error, setError] = useState<string | null>(null);
 
   const calculateWeight = (userReputation: typeof reputation | null, barReport: typeof barReports[0] | undefined): number => {
-    let weight = 1.0; // Base weight
+    let weight = 1.0;
 
     if (userReputation) {
-      // Reputation points multiplier (0.5x to 2.0x)
       const reputationMultiplier = Math.min(2.0, Math.max(0.5, 
         (userReputation.reputation_points || 0) / 1000 + 0.5));
       weight *= reputationMultiplier;
 
-      // Accuracy rate multiplier (0.5x to 1.5x)
       if (userReputation.total_votes > 0) {
         const accuracyRate = userReputation.positive_votes_received / userReputation.total_votes;
         const accuracyMultiplier = Math.min(1.5, Math.max(0.5, accuracyRate + 0.5));
         weight *= accuracyMultiplier;
       }
 
-      // Bar-specific expertise multiplier (1.0x to 2.0x)
       if (barReport) {
         const expertiseMultiplier = Math.min(2.0, Math.max(1.0, 
           (barReport.accuracy_rate || 0) * 2));
@@ -66,7 +63,6 @@ export const useLineTime = (barId?: string) => {
         query = query.eq('bar_id', barId);
       }
 
-      // Only fetch line times from the last 2 hours
       const twoHoursAgo = new Date();
       twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
       query = query.gte('timestamp', twoHoursAgo.toISOString());
@@ -76,7 +72,6 @@ export const useLineTime = (barId?: string) => {
 
       if (fetchError) throw fetchError;
 
-      // Process the line times with vote information
       const processedLineTimes = (data || []).map(post => {
         const votes = post.votes || [];
         const userVote = votes.find(v => v.user_id === user?.id)?.vote_type;
@@ -110,10 +105,9 @@ export const useLineTime = (barId?: string) => {
 
       const barReport = barReports.find(report => report.bar_id === barId);
       
-      // Check cooldown period (5 minutes)
       if (barReport) {
         const lastReportTime = new Date(barReport.last_report_at).getTime();
-        const cooldownPeriod = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const cooldownPeriod = 5 * 60 * 1000;
         
         if (Date.now() - lastReportTime < cooldownPeriod) {
           throw new Error('Please wait before submitting another line time');
@@ -144,7 +138,6 @@ export const useLineTime = (barId?: string) => {
     }
   };
 
-  // Fetch line times on mount and when barId changes
   useEffect(() => {
     fetchLineTimes();
   }, [barId]);

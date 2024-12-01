@@ -1,30 +1,83 @@
 /**
- * SettingsScreen - App Settings and Configuration Screen
+ * Settings Screen
+ * 
+ * User preferences and app configuration management screen.
  * 
  * Layout:
- * - Scrollable list of settings sections
- * - Three main sections:
- *   1. Notifications (toggles)
- *   2. Privacy (toggles and actions)
- *   3. Support (links and feedback)
+ * ┌─────────────────────────────────┐
+ * │ Notifications                   │
+ * │ ┌───────────────────┐ ┌──────┐ │
+ * │ │ Push Notifications│ │ ✓ ON │ │
+ * │ └───────────────────┘ └──────┘ │
+ * │ ┌───────────────────┐ ┌──────┐ │
+ * │ │ Line Time Alerts  │ │ ✓ ON │ │
+ * │ └───────────────────┘ └──────┘ │
+ * ├─────────────────────────────────┤
+ * │ Privacy                         │
+ * │ ┌───────────────────┐ ┌──────┐ │
+ * │ │ Location Services │ │ ✓ ON │ │
+ * │ └───────────────────┘ └──────┘ │
+ * │ ┌───────────────────┐ ┌──────┐ │
+ * │ │ Share Analytics   │ │ ✓ ON │ │
+ * │ └───────────────────┘ └──────┘ │
+ * │ ┌───────────────────────────┐  │
+ * │ │ Clear App Data            │  │
+ * │ └───────────────────────────┘  │
+ * ├─────────────────────────────────┤
+ * │ Support                         │
+ * │ ┌───────────────────────────┐  │
+ * │ │ Send Feedback             │  │
+ * │ └───────────────────────────┘  │
+ * │ ┌───────────────────────────┐  │
+ * │ │ Privacy Policy            │  │
+ * │ └───────────────────────────┘  │
+ * │ ┌───────────────────────────┐  │
+ * │ │ Terms of Service          │  │
+ * │ └───────────────────────────┘  │
+ * └─────────────────────────────────┘
  * 
- * Core Functionality:
- * - Toggle push notifications and line time alerts
- * - Manage location services and analytics sharing
- * - Clear app data functionality
- * - Access to privacy policy and terms of service
- * - Send feedback option
+ * Local Storage:
+ * - pushNotifications: boolean
+ * - lineTimeAlerts: boolean
+ * - locationServices: boolean
+ * - analytics: boolean
  * 
- * Data Flow:
- * - Uses AsyncStorage for persistent settings storage
- * - Local state management for immediate UI updates
- * - External URL handling for policy/terms links
- * - Alert dialogs for destructive actions
+ * Settings Sections:
+ * 1. Notifications
+ *    - Push notifications toggle
+ *    - Line time alerts toggle
+ *    - Affects: Expo notifications
  * 
- * Settings Types:
- * - toggle: Boolean switches (notifications, location, analytics)
- * - button: Action triggers (clear data, feedback)
- * - link: External URL navigation (privacy, terms)
+ * 2. Privacy
+ *    - Location services toggle
+ *    - Analytics sharing toggle
+ *    - Data clearing functionality
+ *    - Affects: Location tracking, analytics
+ * 
+ * 3. Support
+ *    - Feedback submission
+ *    - Policy documents
+ *    - Terms of service
+ *    - Affects: External links
+ * 
+ * Data Management:
+ * - AsyncStorage for persistent settings
+ * - Immediate UI updates on changes
+ * - Confirmation dialogs for destructive actions
+ * - Deep linking for external URLs
+ * 
+ * Components:
+ * - Section headers with titles
+ * - Toggle switches for boolean settings
+ * - Action buttons for operations
+ * - External link handlers
+ * - Alert dialogs for confirmations
+ * 
+ * Error Handling:
+ * - Storage read/write failures
+ * - External URL errors
+ * - Data clearing failures
+ * - Network connectivity issues
  */
 
 import React, { useState } from 'react';

@@ -130,7 +130,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dateOfBirth: Date;
   }) => {
     try {
-      // Verify age
       const today = new Date();
       const age = today.getFullYear() - dateOfBirth.getFullYear();
       const monthDiff = today.getMonth() - dateOfBirth.getMonth();
@@ -143,7 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       
-      // Create auth user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -156,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!data.user) throw new Error('No user returned from sign up');
 
       const userId = data.user.id;
-      // Start a Supabase transaction for all inserts
+
       const { error: transactionError } = await supabase.rpc('create_user_records', {
         user_id: userId,
         first_name: firstName,
@@ -166,7 +164,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (transactionError) {
         console.error('Transaction error:', transactionError);
-        // Attempt to clean up auth user if record creation fails
         await supabase.auth.signOut();
         throw transactionError;
       }
@@ -174,7 +171,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (error) {
       console.error('Error in signUp:', error);
-      // Clean up any partial data if possible
       await supabase.auth.signOut();
       throw error;
     }

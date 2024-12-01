@@ -44,7 +44,7 @@ export const useHours = (): UseHoursResult => {
 
   const isOpen = (barId: string): boolean => {
     const now = new Date();
-    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const currentDay = now.getDay(); 
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
 
@@ -54,17 +54,14 @@ export const useHours = (): UseHoursResult => {
 
     if (!todayHours) return false;
 
-    // Parse hours string (format: "HH:MM-HH:MM")
     const [openTime, closeTime] = todayHours.time.split('-');
     const [openHour, openMinute] = openTime.split(':').map(Number);
     const [closeHour, closeMinute] = closeTime.split(':').map(Number);
 
-    // Convert current time to minutes since midnight
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
     const openTimeInMinutes = openHour * 60 + openMinute;
     let closeTimeInMinutes = closeHour * 60 + closeMinute;
 
-    // Handle cases where closing time is after midnight
     if (closeTimeInMinutes < openTimeInMinutes) {
       closeTimeInMinutes += 24 * 60;
     }

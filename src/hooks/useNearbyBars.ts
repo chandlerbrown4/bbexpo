@@ -28,7 +28,6 @@ export const useNearbyBars = (maxDistance: number = 20) => {
       setLoading(true);
       setError(null);
 
-      // First, get all bars
       const { data: barsData, error: fetchError } = await supabase
         .from('bars')
         .select('*');
@@ -42,7 +41,6 @@ export const useNearbyBars = (maxDistance: number = 20) => {
         return;
       }
 
-      // Calculate distance for each bar and filter by maxDistance
       const barsWithDistance = barsData
         .map((bar) => ({
           ...bar,

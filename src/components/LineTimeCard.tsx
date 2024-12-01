@@ -70,10 +70,8 @@ export const LineTimeCard: React.FC<LineTimeCardProps> = ({ lineTime, onVote }) 
           </Text>
           <Text style={styles.timestamp}>
             {(() => {
-              // Parse the UTC timestamp and adjust for EST (UTC-5)
               const utcDate = new Date(lineTime.timestamp);
               const now = new Date();
-              // Adjust for EST timezone (UTC-5 = -5 * 60 * 60 * 1000 milliseconds)
               const estOffset = -5 * 60 * 60 * 1000;
               const localDate = new Date(utcDate.getTime() + estOffset);
               return formatDistance(localDate, now, { addSuffix: true });

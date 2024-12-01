@@ -1,24 +1,64 @@
 /**
- * EventsScreen - Bar Events List Screen
+ * Events Screen
+ * 
+ * Displays and filters upcoming events at local bars.
  * 
  * Layout:
- * - Horizontal filter tabs at the top (All, Today, Week, Weekend)
- * - Scrollable list of event cards
- * - Pull-to-refresh functionality
- * - Loading indicator when fetching data
- * - Add Event FAB in bottom right corner
+ * ┌─────────────────────────────────┐
+ * │ [All] Today Week Weekend        │ <- Filter Tabs
+ * ├─────────────────────────────────┤
+ * │ ┌─────────────────────────────┐ │
+ * │ │ Event Title                 │ │ <- Event Card
+ * │ │ @ Bar Name                  │ │
+ * │ │ 📅 Fri, Dec 15 • 9:00 PM   │ │
+ * │ │                             │ │
+ * │ │ Event description text...   │ │
+ * │ └─────────────────────────────┘ │
+ * │                                 │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ Event Title                 │ │
+ * │ │ @ Bar Name                  │ │
+ * │ │ 📅 Sat, Dec 16 • 8:00 PM   │ │
+ * │ │                             │ │
+ * │ │ Event description text...   │ │
+ * │ └─────────────────────────────┘ │
+ * └─────────────────────────────────┘
  * 
- * Core Functionality:
- * - Displays all upcoming bar events
- * - Filter events by time period (all/today/week/weekend)
- * - Navigation to event details
- * - Quick access to create new events
- * - Refresh mechanism to update event data
+ * Input Data:
+ * - User Context:
+ *   - userId: string (for event interactions)
+ *   - userLocation: { latitude, longitude }
  * 
- * Data Flow:
- * - Uses useEvents hook for fetching event data
- * - Implements event filtering based on date ranges
- * - Sorts events chronologically
+ * Database Queries:
+ * 1. Events (useEvents):
+ *    SELECT FROM events WHERE
+ *    - date >= startDate
+ *    - date <= endDate
+ *    - ORDER BY date ASC
+ *    Includes:
+ *    - name, description, date
+ *    - bar_id, bar_name
+ *    - count (attendance/interest)
+ * 
+ * Filter Options:
+ * - All: No date filtering
+ * - Today: Events on current date
+ * - Week: Events in next 7 days
+ * - Weekend: Events Fri-Sun
+ * 
+ * Components:
+ * - Filter tabs for date range selection
+ * - EventDisplay: Individual event card
+ *   - Title and bar name
+ *   - Formatted date and time
+ *   - Description preview
+ * 
+ * Features:
+ * - Date-based filtering
+ * - Pull to refresh
+ * - Navigation to bar details
+ * - Chronological sorting
+ * - Description truncation
  */
 
 import React, { useState, useEffect } from 'react';

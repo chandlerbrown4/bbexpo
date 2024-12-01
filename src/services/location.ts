@@ -38,7 +38,7 @@ export const calculateDistance = (
   lat2: number,
   lon2: number
 ): number => {
-  const R = 6371e3; // metres
+  const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -50,5 +50,5 @@ export const calculateDistance = (
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   const distance = R * c;
-  return distance / 1609.34; // Convert to miles
+  return distance / 1609.34;
 };

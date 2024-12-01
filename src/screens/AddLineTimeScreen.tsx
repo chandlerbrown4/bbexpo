@@ -138,10 +138,9 @@ const DEFAULT_WAIT_TIMES = {
   'Very Long Line': 30,
 } as const;
 
-const MAX_DISTANCE_MILES = 2; // Maximum distance in miles to add line time
+const MAX_DISTANCE_MILES = 2; 
 
 export const AddLineTimeScreen: React.FC = () => {
-  //const theme = useTheme();
   const navigation = useNavigation();
   const route = useRoute<AddLineTimeRouteProp>();
   const { barId } = route.params;
@@ -157,7 +156,7 @@ export const AddLineTimeScreen: React.FC = () => {
   const [error, setError] = useState('');
 
   const validateMinutes = (selectedCategory: string, minutesValue: string) => {
-    if (!minutesValue) return true; // If no minutes provided, we'll use the default
+    if (!minutesValue) return true;
 
     const minutes = parseInt(minutesValue);
     if (isNaN(minutes)) return false;
@@ -165,7 +164,6 @@ export const AddLineTimeScreen: React.FC = () => {
     const category = LINE_OPTIONS.find(opt => opt.label === selectedCategory);
     if (!category) return false;
     
-    // Enforce strict ranges based on category
     switch (selectedCategory) {
       case 'No Line':
         return minutes === 0;
@@ -192,7 +190,6 @@ export const AddLineTimeScreen: React.FC = () => {
           throw new Error('Location not available');
         }
 
-        // Fetch bar details to get its location
         const { data: barData, error: fetchError } = await supabase
           .from('bars')
           .select('*')
@@ -204,7 +201,6 @@ export const AddLineTimeScreen: React.FC = () => {
 
         setBar(barData);
 
-        // Calculate distance to bar
         const distance = calculateDistance(
           location.latitude,
           location.longitude,
@@ -240,14 +236,13 @@ export const AddLineTimeScreen: React.FC = () => {
       const barReport = barReports.find(report => report.bar_id === barId);
       if (barReport) {
         const lastReportTime = new Date(barReport.last_report_at).getTime();
-        const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
+        const cooldownPeriod = 5 * 60 * 1000;
         
         if (Date.now() - lastReportTime < cooldownPeriod) {
           throw new Error('Please wait before submitting another line time');
         }
       }
 
-      // Use default wait time if no minutes provided or validation fails
       let minutesValue = minutes ? parseInt(minutes) : null;
       if (!minutesValue || !validateMinutes(selectedLine, minutes)) {
         minutesValue = DEFAULT_WAIT_TIMES[selectedLine as keyof typeof DEFAULT_WAIT_TIMES];
@@ -255,7 +250,6 @@ export const AddLineTimeScreen: React.FC = () => {
 
       await addLineTime(barId, selectedLine, minutesValue);
       
-      // Go back and set params on the previous screen
       navigation.dispatch(
         CommonActions.reset({
           index: 0,

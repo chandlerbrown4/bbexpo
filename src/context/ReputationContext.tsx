@@ -70,7 +70,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return;
       }
 
-      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -82,7 +81,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       setProfile(profileData);
 
-      // Fetch user reputation
       const { data: reputationData, error: reputationError } = await supabase
         .from('user_reputation')
         .select('*')
@@ -94,7 +92,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       setReputation(reputationData);
 
-      // Fetch badges
       const { data: badgeData, error: badgeError } = await supabase
         .from('badges')
         .select('*');
@@ -103,17 +100,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         console.error('Error fetching badges:', badgeError);
       }
       setBadges(badgeData || []);
-
-      // Fetch bar reports
-      //const { data: reportData, error: reportError } = await supabase
-      //  .from('bar_reports')
-      //  .select('*')
-      //  .eq('user_id', user.id);
-
-      //if (reportError) {
-      //  console.error('Error fetching bar reports:', reportError);
-      //}
-      //setBarReports(reportData || []);
 
     } catch (err: any) {
       console.error('Error fetching reputation data:', err);
@@ -127,7 +113,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       if (!user) throw new Error('Must be logged in to vote');
 
-      // Check if user has already voted on this line time
       const { data: existingVote } = await supabase
         .from('line_time_votes')
         .select('*')
@@ -139,7 +124,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         throw new Error('You have already voted on this line time');
       }
 
-      // Get the user_id of the line time post creator
       const { data: lineTime } = await supabase
         .from('line_time_posts')
         .select('user_id')
@@ -148,7 +132,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       if (!lineTime) throw new Error('Line time not found');
 
-      // Start a transaction by using RPC
       const { data, error } = await supabase.rpc('handle_line_time_vote', {
         p_line_time_id: lineTimeId,
         p_user_id: user.id,
@@ -158,7 +141,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       if (error) throw error;
 
-      // Refresh the profile data to get updated reputation
       await fetchProfile();
     } catch (error) {
       console.error('Error voting:', error);
@@ -166,7 +148,6 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  // Fetch profile when user changes
   useEffect(() => {
     fetchProfile();
   }, [user]);

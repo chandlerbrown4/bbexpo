@@ -1,3 +1,46 @@
+/**
+ * Sign In Screen
+ * 
+ * Handles user authentication through email and password login.
+ * 
+ * Layout:
+ * ┌─────────────────────────────────┐
+ * │           Bar Scout             │ <- Logo
+ * │                                 │
+ * │      Welcome to Bar Scout       │ <- Title
+ * │    Your nightlife companion     │ <- Subtitle
+ * │                                 │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 📧 Email                    │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 🔒 Password                 │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │                                 │
+ * │         [  Sign In  ]          │ <- Button
+ * │                                 │
+ * │     Don't have an account?     │
+ * │          Sign Up →             │ <- Navigation Link
+ * └─────────────────────────────────┘
+ * 
+ * State:
+ * - email: string
+ * - password: string
+ * - error: string | null (displays validation/auth errors)
+ * - loading: boolean (disables form during submission)
+ * 
+ * Authentication:
+ * - Uses AuthContext.signIn(email, password)
+ * - Automatic navigation on successful auth
+ * - Error display on failed auth
+ * 
+ * Components:
+ * - KeyboardAvoidingView (adjusts for keyboard)
+ * - Input (email and password fields)
+ * - Button (sign in action)
+ * - TouchableOpacity (navigation to sign up)
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -33,7 +76,6 @@ export const SignInScreen: React.FC = () => {
       setError(null);
       setLoading(true);
       await signIn(email, password);
-      // Auth context will handle navigation via user state change
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

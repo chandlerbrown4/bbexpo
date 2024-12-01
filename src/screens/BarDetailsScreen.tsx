@@ -1,30 +1,80 @@
-import { calculateDistance } from '../services/location';
-
 /**
- * BarDetailsScreen - Individual Bar Information Screen
+ * Bar Details Screen
+ * 
+ * Displays detailed information about a specific bar, including hours, specials, and current line time.
  * 
  * Layout:
- * - Bar image/header at the top
- * - Bar information section (name, address, description)
- * - Actions section (call, directions, menu)
- * - Tabbed content section (info, specials)
- * - Info tab: hours, about, amenities
- * - Specials tab: list of specials
+ * ┌─────────────────────────────────┐
+ * │     [Bar Image/Header]          │ <- Header Image
+ * │                                 │
+ * │ Bar Name                        │ <- Title
+ * │ 📍 123 Main St (0.5 mi)        │ <- Location
+ * │                                 │
+ * │ ┌─────┐ ┌────────┐ ┌────────┐  │
+ * │ │ 📞  │ │   🗺   │ │  📝   │  │ <- Action Buttons
+ * │ │ Call│ │ Direct │ │ Menu  │  │
+ * │ └─────┘ └────────┘ └────────┘  │
+ * │                                 │
+ * │ ┌─────────┐ ┌──────────────┐   │
+ * │ │  Info   │ │  Specials    │   │ <- Tab Bar
+ * │ └─────────┘ └──────────────┘   │
+ * │                                 │
+ * │ Hours:                         │
+ * │ Mon-Thu: 4pm - 2am             │ <- Hours Section
+ * │ Fri-Sat: 2pm - 2am             │
+ * │ Sun: 4pm - 12am                │
+ * │                                 │
+ * │ About:                         │
+ * │ Description of the bar...       │ <- About Section
+ * │                                 │
+ * │ Amenities:                     │
+ * │ - Pool Tables                   │ <- Amenities List
+ * │ - Outdoor Seating               │
+ * │ - Live Music                    │
+ * └─────────────────────────────────┘
  * 
- * Core Functionality:
- * - Displays detailed information about a specific bar
- * - Shows hours, about, and amenities information
- * - Displays list of specials
- * - Provides navigation to directions and menu
- * - Refresh mechanism to update bar data
+ * Input Data:
+ * - Route Params:
+ *   - barId: string (UUID of the bar)
  * 
- * Data Flow:
- * - Receives barId through navigation params
- * - Uses useNearbyBars hook for fetching nearby bars
- * - Uses useSpecials hook for fetching specials
- * - Uses useBarHours hook for fetching bar hours
- * - Uses useLocation hook for fetching user location
+ * Data Sources:
+ * 1. Bar Details (useNearbyBars):
+ *    - Basic info (name, address, description)
+ *    - Distance calculation
+ *    - Contact information
+ * 
+ * 2. Operating Hours (useBarHours):
+ *    - Daily schedule
+ *    - Special holiday hours
+ *    - Current open/closed status
+ * 
+ * 3. Specials (useSpecials):
+ *    - Daily specials
+ *    - Happy hour times
+ *    - Promotional events
+ * 
+ * 4. Line Times (useLineTime):
+ *    - Current wait time
+ *    - Recent reports
+ *    - Historical trends
+ * 
+ * Features:
+ * - Tab-based content navigation
+ * - Direct phone call integration
+ * - Maps navigation launch
+ * - Menu link handling
+ * - Real-time data updates
+ * 
+ * Components:
+ * - Header with bar image
+ * - Action buttons (call, directions, menu)
+ * - Tab navigation (info/specials)
+ * - SpecialsList component
+ * - Operating hours display
+ * - Distance indicator
  */
+
+import { calculateDistance } from '../services/location';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {

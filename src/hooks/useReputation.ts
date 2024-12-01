@@ -40,7 +40,6 @@ export const useReputation = (): UseReputationResult => {
       if (profileError) throw profileError;
       setProfile(data);
 
-      // Fetch badges
       const { data: badgeData, error: badgeError } = await supabase
         .from('badges')
         .select('*');
@@ -48,7 +47,6 @@ export const useReputation = (): UseReputationResult => {
       if (badgeError) throw badgeError;
       setBadges(badgeData);
 
-      // Fetch bar expertise
       const { data: expertiseData, error: expertiseError } = await supabase
         .from('bar_expertise')
         .select('*')
@@ -68,7 +66,6 @@ export const useReputation = (): UseReputationResult => {
     try {
       if (!user) throw new Error('Must be logged in to vote');
 
-      // Check if user has already voted
       const { data: existingVote } = await supabase
         .from('line_time_votes')
         .select('*')
@@ -78,20 +75,17 @@ export const useReputation = (): UseReputationResult => {
 
       if (existingVote) {
         if (existingVote.vote_type === voteType) {
-          // Remove vote if clicking same button
           await supabase
             .from('line_time_votes')
             .delete()
             .eq('id', existingVote.id);
         } else {
-          // Change vote if clicking different button
           await supabase
             .from('line_time_votes')
             .update({ vote_type: voteType })
             .eq('id', existingVote.id);
         }
       } else {
-        // Add new vote
         await supabase
           .from('line_time_votes')
           .insert({
@@ -101,7 +95,6 @@ export const useReputation = (): UseReputationResult => {
           });
       }
 
-      // Refresh profile to get updated reputation
       await fetchProfile();
     } catch (err: any) {
       setError(err.message);

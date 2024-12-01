@@ -179,10 +179,8 @@ export const darkTheme: Theme = {
 };
 
 export const useTheme = () => {
-  // Using Appearance.getColorScheme() directly as a fallback
   const colorScheme = useColorScheme() || Appearance.getColorScheme();
   return colorScheme === 'dark' ? darkTheme : lightTheme;
 };
 
-// Export the default theme as an alias for backward compatibility
 export const theme = lightTheme;

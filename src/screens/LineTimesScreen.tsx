@@ -91,14 +91,6 @@
  * 
  * Real-time Updates:
  * - Supabase realtime subscription to line_time_posts
- * - Automatic refresh on new reports
- * - Vote counts update instantly
- * 
- * Error Handling:
- * - Location services disabled
- * - Network connectivity issues
- * - Database query failures
- * - Vote submission errors
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -192,7 +184,7 @@ export const LineTimesScreen: React.FC = () => {
       recentReports: barLineTimes.map(lt => ({
         id: lt.id,
         minutes: lt.minutes,
-        timestamp: lt.timestamp,  // Use timestamp instead of created_at
+        timestamp: lt.timestamp,  
         reporter_name: lt.reporter_name,
         reporter_status: lt.reporter_status,
         user_vote: lt.user_vote,

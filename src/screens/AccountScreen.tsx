@@ -1,3 +1,57 @@
+/**
+ * Account Screen
+ * 
+ * Displays and manages user account information and settings.
+ * 
+ * Layout:
+ * ┌─────────────────────────────────┐
+ * │ Account                         │ <- Header
+ * ├─────────────────────────────────┤
+ * │                                 │
+ * │ Profile Information             │ <- Section Title
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 📧 Email                    │ │ <- Email (Read-only)
+ * │ │   ✓ Verified                │ │ <- Verification Badge
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 👤 Full Name               │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
+ * │ │ 📱 Phone Number            │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │                                 │
+ * │ Account Actions                 │ <- Section Title
+ * │ ┌─────────────────────────────┐ │
+ * │ │    [  Edit Profile  ]       │ │ <- Button
+ * │ │    [  Sign Out  ]          │ │ <- Button
+ * │ └─────────────────────────────┘ │
+ * └─────────────────────────────────┘
+ * 
+ * State:
+ * - profile: UserProfile (email, name, phone)
+ * - isEditing: boolean (edit mode toggle)
+ * - loading: boolean (during operations)
+ * 
+ * User Profile Data:
+ * - id: string (UUID)
+ * - email: string
+ * - fullName: string
+ * - phoneNumber: string
+ * - isEmailVerified: boolean
+ * 
+ * Features:
+ * - Profile information display
+ * - Email verification status
+ * - Edit mode for profile updates
+ * - Sign out functionality
+ * 
+ * Components:
+ * - Section headers with styled typography
+ * - Input fields (enabled in edit mode)
+ * - Verification badge with status colors
+ * - Action buttons with loading states
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -93,7 +147,6 @@ export const AccountScreen: React.FC = () => {
   const handleUpdateProfile = async () => {
     try {
       setLoading(true);
-      // TODO: Implement profile update logic
       setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
@@ -126,7 +179,6 @@ export const AccountScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // TODO: Implement account deletion logic
               await signOut();
               navigation.navigate('SignIn');
             } catch (error) {

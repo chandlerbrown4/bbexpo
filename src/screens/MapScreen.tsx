@@ -1,3 +1,67 @@
+/**
+ * Map Screen
+ * 
+ * Interactive map view showing nearby bars and their current line status.
+ * 
+ * Layout:
+ * ┌─────────────────────────────────┐
+ * │                                 │
+ * │           [MapView]             │
+ * │                                 │
+ * │     📍 User Location           │
+ * │                                 │
+ * │     🔵 Bar (Active Report)     │
+ * │     ⚪ Bar (No Report)         │
+ * │                                 │
+ * │  ┌─────────────────────────┐    │
+ * │  │     Bar Name            │    │
+ * │  │     Current Line: 15min │    │ <- Callout
+ * │  │     Updated: 5min ago   │    │
+ * │  └─────────────────────────┘    │
+ * │                                 │
+ * └─────────────────────────────────┘
+ * 
+ * Input Data:
+ * - User Context:
+ *   - location: { latitude, longitude }
+ * 
+ * Database Queries:
+ * 1. Nearby Bars:
+ *    SELECT FROM bars WHERE
+ *    - latitude BETWEEN (user_lat ± 0.1)
+ *    - longitude BETWEEN (user_lng ± 0.1)
+ *    Returns:
+ *    - id, name, latitude, longitude
+ * 
+ * 2. Line Time Reports:
+ *    SELECT FROM line_time_posts WHERE
+ *    - timestamp > now() - 2 hours
+ *    ORDER BY timestamp DESC
+ *    Returns:
+ *    - id, bar_id, line, minutes, timestamp
+ * 
+ * Features:
+ * - Real-time location tracking
+ * - Dynamic map region adjustment
+ * - Color-coded bar markers
+ *   - Active report: Primary color
+ *   - No report: Secondary color
+ * - Interactive markers with line info
+ * - Auto-refresh on location change
+ * 
+ * Components:
+ * - MapView: Main map component
+ * - Marker: Individual bar locations
+ * - Callout: Bar details popup
+ * - Error View: Location error display
+ * 
+ * Map Configuration:
+ * - Initial zoom: 0.0922 delta
+ * - Default center: North Wilkesboro
+ * - Auto-center on user location
+ * - 2-hour report window
+ */
+
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import MapView from 'react-native-maps';
