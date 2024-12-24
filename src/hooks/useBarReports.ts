@@ -10,8 +10,8 @@ export interface BarReport {
   crowd_density: 'light' | 'moderate' | 'packed';
   reporter_name: string;
   reporter_expertise_level: number;
-  upvotes: bigint;
-  downvotes: bigint;
+  upvotes: number;  // Cast from bigint in fetchReports
+  downvotes: number;  // Cast from bigint in fetchReports
   user_vote?: number;
   created_at: string;
 }
@@ -45,15 +45,19 @@ export const useBarReports = (barId: string): UseBarReportsReturn => {
 
       if (rpcError) throw rpcError;
       
-      // Debug log to see the structure and types
-      console.log('Raw report data:', JSON.stringify(data, null, 2));
-      if (data && data.length > 0) {
-        console.log('First report types:', Object.entries(data[0]).map(([key, value]) => 
-          `${key}: ${typeof value} (${value})`
-        ));
-      }
+      // Convert bigint to number for upvotes and downvotes
+      const processedData = (data?.map(report => ({
+        ...report,
+        upvotes: Number(report.upvotes),
+        downvotes: Number(report.downvotes)
+      })) || []).sort((a, b) => {
+        // Convert both timestamps to UTC for comparison
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
+        return dateB.getTime() - dateA.getTime();
+      });
       
-      setReports(data || []);
+      setReports(processedData);
     } catch (err) {
       console.error('Error fetching reports:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch reports');
@@ -81,8 +85,8 @@ export const useBarReports = (barId: string): UseBarReportsReturn => {
           if (report.report_id === reportId) {
             return {
               ...report,
-              upvotes: isUpvote ? BigInt(Number(report.upvotes) + 1) : report.upvotes,
-              downvotes: !isUpvote ? BigInt(Number(report.downvotes) + 1) : report.downvotes,
+              upvotes: isUpvote ? report.upvotes + 1 : report.upvotes,
+              downvotes: !isUpvote ? report.downvotes + 1 : report.downvotes,
               user_vote: isUpvote ? 1 : -1
             };
           }

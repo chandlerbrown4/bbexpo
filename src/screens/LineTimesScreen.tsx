@@ -16,6 +16,7 @@ import {
   ScrollView,
   Image,
   Dimensions,
+  SafeAreaView,
 } from 'react-native';
 import {
   useNavigation,
@@ -374,23 +375,39 @@ const ReportHistoryModal: React.FC<{
       .filter(report => report.photo_url)
       .map(report => ({
         url: report.photo_url!,
-        reportId: report.id
+        reportId: report.report_id
       })),
     [reports]
   );
 
   const formatTime = (date: string) => {
-    const now = new Date();
-    const reportTime = new Date(date);
-    const diff = now.getTime() - reportTime.getTime();
-    const minutes = Math.floor(diff / 60000);
+    // Current time in Eastern Time (ET)
+    const now = new Date('2024-12-24T18:12:25-05:00');
     
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    } else if (minutes < 1440) {
-      return `${Math.floor(minutes / 60)}h ago`;
+    // Parse the UTC timestamp and convert to local time
+    const reportTime = new Date(date);
+    
+    const diffMs = now.getTime() - reportTime.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins} ${diffMins === 1 ? 'min' : 'mins'} ago`;
+    } else if (diffMins < 1440) { // less than 24 hours
+      const hours = Math.floor(diffMins / 60);
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    } else if (diffMins < 10080) { // less than 7 days
+      const days = Math.floor(diffMins / 1440);
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
     } else {
-      return reportTime.toLocaleDateString();
+      // Format date as MM/DD/YY
+      return reportTime.toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: '2-digit',
+        timeZone: 'America/New_York'
+      });
     }
   };
 
@@ -405,13 +422,15 @@ const ReportHistoryModal: React.FC<{
       <View style={styles.reportHeader}>
         <View style={styles.reportInfo}>
           <Text style={styles.reportTime}>{formatTime(report.created_at)}</Text>
-          <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(report.confidence_score) }]}>
-            <Text style={styles.confidenceText}>
-              {Math.round(report.confidence_score * 100)}% confidence
-            </Text>
-          </View>
+          {report.confidence_score && (
+            <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(report.confidence_score) }]}>
+              <Text style={styles.confidenceText}>
+                {Math.round(report.confidence_score * 100)}% confidence
+              </Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.reportUser}>by {report.user.username}</Text>
+        <Text style={styles.reportUser}>by {report.reporter_name || 'Anonymous'}</Text>
       </View>
 
       <View style={styles.reportContent}>
@@ -445,26 +464,26 @@ const ReportHistoryModal: React.FC<{
       <View style={styles.reportFooter}>
         <TouchableOpacity
           style={styles.voteButton}
-          onPress={() => upvoteReport(report.id)}
+          onPress={() => upvoteReport(report.report_id)}
         >
           <Ionicons
             name="thumbs-up"
             size={20}
             color={theme.colors.primary}
           />
-          <Text style={styles.voteCount}>{Number(report.upvotes).toString()}</Text>
+          <Text style={styles.voteCount}>{report.upvotes}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.voteButton}
-          onPress={() => downvoteReport(report.id)}
+          onPress={() => downvoteReport(report.report_id)}
         >
           <Ionicons
             name="thumbs-down"
             size={20}
             color={theme.colors.text}
           />
-          <Text style={styles.voteCount}>{Number(report.downvotes).toString()}</Text>
+          <Text style={styles.voteCount}>{report.downvotes}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -476,13 +495,13 @@ const ReportHistoryModal: React.FC<{
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.historyContainer}>
+      <SafeAreaView style={styles.historyContainer}>
         <View style={styles.historyHeader}>
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity onPress={onClose} style={styles.headerButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.historyTitle}>Line History - {bar.name}</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerButton} />
         </View>
 
         {loading ? (
@@ -493,7 +512,7 @@ const ReportHistoryModal: React.FC<{
           <FlatList
             data={reports}
             renderItem={renderReport}
-            keyExtractor={(item) => item.id}
+            keyExtractor={item => item.report_id}
             refreshControl={
               <RefreshControl
                 refreshing={loading}
@@ -505,7 +524,7 @@ const ReportHistoryModal: React.FC<{
             }
           />
         )}
-      </View>
+      </SafeAreaView>
 
       <PhotoGallery
         photos={photos}
@@ -1357,13 +1376,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   historyTitle: {
     fontSize: 18,
     fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
   },
   historyLoading: {
     flex: 1,
