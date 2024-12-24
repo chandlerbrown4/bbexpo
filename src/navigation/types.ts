@@ -1,15 +1,11 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type RootStackParamList = {
-  LineTimes: undefined;
-  AddLineTime: { barId: string };
-  BarDetails: { barId: string };
-  Events: undefined;
-  Map: undefined;
-  Profile: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList>;
+  SignIn: undefined;
+  SignUp: undefined;
 };
 
 export type MainTabParamList = {
-  LineTimesTab: undefined;
-  EventsTab: undefined;
-  MapTab: undefined;
-  ProfileTab: undefined;
+  NearbyBars: undefined;
 };

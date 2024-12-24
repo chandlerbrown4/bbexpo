@@ -2,24 +2,39 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useReputation } from '../context/ReputationContext';
+import { Alert } from 'react-native';
 
 export interface LineTimePost {
   id: string;
   bar_id: string;
   user_name: string;
-  line: string;
-  minutes: number;
+  wait_minutes: number;
+  capacity_percentage: number;
+  crowd_density: string;
+  cover_charge: number | null;
   timestamp: string;
   verified: boolean;
-  weight: number;
   upvotes: number;
   downvotes: number;
   user_vote?: 'up' | 'down' | null;
 }
 
+interface SubmissionCheck {
+  can_submit: boolean;
+  cooldown_seconds: number;
+  reason: string;
+}
+
+interface SubmissionResult {
+  report_id: string;
+  points_earned: number;
+  new_bar_level: number;
+  achievement_unlocked: string | null;
+}
+
 export const useLineTime = (barId?: string) => {
   const { user } = useAuth();
-  const { profile, reputation, barReports } = useReputation();
+  const { profile, reputation, barReports, refreshProfile } = useReputation();
   const [lineTimes, setLineTimes] = useState<LineTimePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,15 +63,104 @@ export const useLineTime = (barId?: string) => {
     return Number(weight.toFixed(2));
   };
 
+  const toNumericVote = (vote: 'up' | 'down'): number => vote === 'up' ? 1 : -1;
+  const toStringVote = (vote: number): 'up' | 'down' | undefined => {
+    if (vote === 1) return 'up';
+    if (vote === -1) return 'down';
+    return undefined;
+  };
+
+  const addLineTime = async (
+    barId: string, 
+    waitMinutes: number,
+    capacityPercentage: number,
+    crowdDensity: string,
+    coverCharge?: number
+  ) => {
+    try {
+      if (!user?.id) {
+        throw new Error('Must be logged in to post line times');
+      }
+
+      const { data, error: submitError } = await supabase
+        .rpc('add_line_report', {
+          p_user_id: user.id,
+          p_bar_id: barId,
+          p_wait_minutes: waitMinutes,
+          p_capacity_percentage: capacityPercentage,
+          p_crowd_density: crowdDensity,
+          p_cover_charge: coverCharge || null
+        });
+
+      if (submitError) throw submitError;
+
+      const result = data as SubmissionResult;
+
+      if (result.achievement_unlocked) {
+        Alert.alert(
+          '🏆 Achievement Unlocked!',
+          `You've earned the ${result.achievement_unlocked} achievement and ${result.points_earned} points!`
+        );
+      } else if (result.points_earned > 0) {
+        Alert.alert(
+          '🎉 Points Earned!',
+          `You've earned ${result.points_earned} points for your report!`
+        );
+      }
+
+      await refreshProfile();
+
+      return result;
+    } catch (err: any) {
+      console.error('Error adding line time:', err);
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const voteOnLineTime = async (lineTimeId: string, voteType: 'up' | 'down') => {
+    try {
+      if (!user?.id) {
+        throw new Error('Must be logged in to vote');
+      }
+
+      const { data, error: voteError } = await supabase
+        .from('line_report_votes')
+        .upsert(
+          {
+            line_report_id: lineTimeId,
+            user_id: user.id,
+            vote_type: toNumericVote(voteType)
+          },
+          {
+            onConflict: 'line_report_id,user_id'
+          }
+        );
+
+      if (voteError) throw voteError;
+
+      await fetchLineTimes();
+      
+      return data;
+    } catch (err: any) {
+      console.error('Error voting on line time:', err);
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const fetchLineTimes = async () => {
     try {
       setLoading(true);
       
       let query = supabase
-        .from('line_time_posts')
+        .from('line_reports')
         .select(`
           *,
-          votes:line_time_votes(vote_type)
+          votes:line_report_votes(
+            vote_type,
+            user_id
+          )
         `);
 
       if (barId) {
@@ -65,25 +169,26 @@ export const useLineTime = (barId?: string) => {
 
       const twoHoursAgo = new Date();
       twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
-      query = query.gte('timestamp', twoHoursAgo.toISOString());
+      query = query.gte('created_at', twoHoursAgo.toISOString());
 
       const { data, error: fetchError } = await query
-        .order('timestamp', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
       const processedLineTimes = (data || []).map(post => {
         const votes = post.votes || [];
-        const userVote = votes.find(v => v.user_id === user?.id)?.vote_type;
-        const upvotes = votes.filter(v => v.vote_type === 'up').length;
-        const downvotes = votes.filter(v => v.vote_type === 'down').length;
+        const userVote = toStringVote(votes.find(v => v.user_id === user?.id)?.vote_type);
+        const upvotes = votes.filter(v => v.vote_type === 1).length;
+        const downvotes = votes.filter(v => v.vote_type === -1).length;
 
-        delete post.votes;
+        const { votes: _, ...postWithoutVotes } = post;
+        
         return {
-          ...post,
+          ...postWithoutVotes,
           upvotes,
           downvotes,
-          user_vote: userVote,
+          user_vote: userVote
         };
       });
 
@@ -97,47 +202,6 @@ export const useLineTime = (barId?: string) => {
     }
   };
 
-  const addLineTime = async (barId: string, line: string, minutes: number) => {
-    try {
-      if (!user || !profile) {
-        throw new Error('Must be logged in to post line times');
-      }
-
-      const barReport = barReports.find(report => report.bar_id === barId);
-      
-      if (barReport) {
-        const lastReportTime = new Date(barReport.last_report_at).getTime();
-        const cooldownPeriod = 5 * 60 * 1000;
-        
-        if (Date.now() - lastReportTime < cooldownPeriod) {
-          throw new Error('Please wait before submitting another line time');
-        }
-      }
-
-      const weight = calculateWeight(reputation, barReport);
-
-      const { error: insertError } = await supabase
-        .from('line_time_posts')
-        .insert([{
-          user_id: user.id,
-          bar_id: barId,
-          line,
-          minutes,
-          timestamp: new Date().toISOString(),
-          verified: false,
-          weight
-        }]);
-
-      if (insertError) throw insertError;
-
-      await fetchLineTimes();
-    } catch (err: any) {
-      console.error('Error adding line time:', err);
-      setError(err.message);
-      throw err;
-    }
-  };
-
   useEffect(() => {
     fetchLineTimes();
   }, [barId]);
@@ -147,6 +211,7 @@ export const useLineTime = (barId?: string) => {
     loading,
     error,
     addLineTime,
-    refreshLineTimes: fetchLineTimes
+    voteOnLineTime,
+    refreshLineTimes: fetchLineTimes,
   };
 };

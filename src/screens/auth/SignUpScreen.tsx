@@ -86,6 +86,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { useTheme } from '../../theme/theme';
+import { supabase } from '../../services/supabase';
 
 type SignUpScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -109,6 +110,7 @@ export const SignUpScreen: React.FC = () => {
       setError(null);
       setLoading(true);
 
+      // Validate inputs
       if (!email || !firstName || !lastName || !password || !confirmPassword || !dateOfBirth) {
         throw new Error('All fields are required');
       }
@@ -126,19 +128,62 @@ export const SignUpScreen: React.FC = () => {
         throw new Error('Please enter a valid email address');
       }
 
-      await signUp({
-        email,
-        password,
-        firstName,
-        lastName,
-        dateOfBirth,
+      // First, sign up with Supabase auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: email.toLowerCase().trim(),
+        password: password,
       });
-      
-      Alert.alert('Account created successfully! Please sign in.');
-      navigation.navigate('SignIn');
-      
+
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error('No user returned from sign up');
+
+      // Then initialize the user profile and related records
+      const profileData = {
+        p_auth_id: authData.user.id,
+        p_display_name: `${firstName.trim()} ${lastName.trim()}`,
+        p_date_of_birth: dateOfBirth.toISOString().split('T')[0],
+        p_bio: null,
+        p_avatar_url: null
+      };
+
+      console.log('Attempting to create profile with data:', JSON.stringify(profileData, null, 2));
+
+      const { data: userId, error: profileError } = await supabase.rpc(
+        'handle_new_user_signup',
+        profileData
+      );
+
+      if (profileError) {
+        console.error('Profile creation error:', {
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint,
+          code: profileError.code
+        });
+
+        console.log('Auth user created:', {
+          id: authData.user.id,
+          email: authData.user.email
+        });
+
+        throw new Error(`Database error saving new user: ${profileError.message}`);
+      }
+
+      console.log('Profile creation successful. User ID:', userId);
+
+      Alert.alert(
+        'Success!',
+        'Your account has been created. Please check your email for verification instructions.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('SignIn')
+          }
+        ]
+      );
+        
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'An error occurred during signup');
     } finally {
       setLoading(false);
     }

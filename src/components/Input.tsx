@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, TextInput, Text, StyleSheet, TextStyle } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../theme/theme';
+
+type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 interface InputProps {
   value: string;
@@ -14,9 +17,18 @@ interface InputProps {
   multiline?: boolean;
   numberOfLines?: number;
   maxLength?: number;
+  leftIcon?: MaterialIconName;
+  style?: any;
 }
 
-export const Input: React.FC<InputProps> = ({ label, error, ...props }) => {
+export const Input: React.FC<InputProps> = ({ 
+  label, 
+  error, 
+  leftIcon, 
+  style,
+  placeholder,
+  ...props 
+}) => {
   const theme = useTheme();
 
   const styles = StyleSheet.create({
@@ -25,50 +37,71 @@ export const Input: React.FC<InputProps> = ({ label, error, ...props }) => {
     },
     label: {
       fontSize: theme.typography.sizes.sm,
-      color: theme.colors.text,
       marginBottom: theme.spacing.xs,
       fontWeight: theme.typography.weights.medium as TextStyle['fontWeight'],
     },
-    input: {
-      backgroundColor: theme.colors.card,
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
       borderWidth: 1,
-      borderColor: theme.colors.border,
       borderRadius: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.sm,
+    },
+    icon: {
+      marginRight: theme.spacing.sm,
+    },
+    input: {
+      flex: 1,
       padding: theme.spacing.sm,
-      color: theme.colors.text,
       fontSize: theme.typography.sizes.md,
     },
-    inputError: {
-      borderColor: theme.colors.error,
-    },
     error: {
-      color: theme.colors.error,
       fontSize: theme.typography.sizes.sm,
       marginTop: theme.spacing.xs,
-    },
+    }
   });
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput
-        style={[
-          styles.input,
-          error && styles.inputError,
-          props.multiline && { height: props.numberOfLines ? props.numberOfLines * 40 : 100 },
-        ]}
-        value={props.value}
-        onChangeText={props.onChangeText}
-        placeholder={props.placeholder}
-        placeholderTextColor={theme.colors.textSecondary}
-        secureTextEntry={props.secureTextEntry}
-        autoCapitalize={props.autoCapitalize}
-        keyboardType={props.keyboardType}
-        multiline={props.multiline}
-        numberOfLines={props.numberOfLines}
-        maxLength={props.maxLength}
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: theme.colors.text }]}>
+          {label}
+        </Text>
+      )}
+      <View style={[
+        styles.inputContainer,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: error ? theme.colors.error : theme.colors.border
+        },
+        style
+      ]}>
+        {leftIcon && (
+          <MaterialCommunityIcons
+            name={leftIcon}
+            size={20}
+            color={theme.colors.textSecondary}
+            style={styles.icon}
+          />
+        )}
+        <TextInput
+          {...props}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.textSecondary}
+          style={[
+            styles.input,
+            {
+              color: theme.colors.text,
+              backgroundColor: 'transparent'
+            }
+          ]}
+        />
+      </View>
+      {error && (
+        <Text style={[styles.error, { color: theme.colors.error }]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 };

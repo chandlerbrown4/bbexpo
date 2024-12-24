@@ -1,99 +1,4 @@
-/**
- * Line Times Screen
- * 
- * Displays a list of bars with their current line times and allows users to view and vote on reports.
- * 
- * Layout:
- * ┌─────────────────────────────────┐
- * │ 🔍 Search Bars                  │ <- SearchBar
- * ├─────────────────────────────────┤
- * │ ┌─────────────────────────────┐ │
- * │ │ Bar Name           🕒 5 min  │ │ <- BarCard
- * │ │ 📍 0.5 mi                    │ │
- * │ │ ├─────────────────────────┤ │ │
- * │ │ │ 👤 John - 4min (30m ago)│ │ │ <- LineTimeReport
- * │ │ │              [👍] [👎]  │ │ │
- * │ │ │ ▼                       │ │ │ <- ExpandButton
- * │ │ └─────────────────────────┘ │ │
- * │ └─────────────────────────────┘ │
- * │                                 │
- * │ ┌─────────────────────────────┐ │
- * │ │ Bar Name          🕒 15 min │ │
- * │ │ 📍 1.2 mi                    │ │
- * │ │ ├─────────────────────────┤ │ │
- * │ │ │ ⭐ Jane - 15min (5m ago)│ │ │
- * │ │ │              [👍] [👎]  │ │ │
- * │ │ │ ▼                       │ │ │
- * │ │ │ 👤 Bob - 12min (15m ago)│ │ │ <- Expanded Reports
- * │ │ │              [👍] [👎]  │ │ │
- * │ │ │ 👑 Amy - 18min (20m ago)│ │ │
- * │ │ │              [👍] [👎]  │ │ │
- * │ │ └─────────────────────────┘ │ │
- * │ └─────────────────────────────┘ │
- * └─────────────────────────────────┘
- * 
- * Input Data:
- * - User Context:
- *   - userId: string (UUID of current user)
- *   - userLocation: { latitude: number, longitude: number }
- * - Query Params:
- *   - searchQuery: string (optional)
- *   - maxDistance: number (in miles)
- * 
- * Database Queries:
- * 1. Nearby Bars (useNearbyBars):
- *    SELECT FROM bars WHERE
- *    - distance < maxDistance
- *    - name ILIKE searchQuery
- *    - ORDER BY distance
- * 
- * 2. Recent Line Times (useRecentLineTimes):
- *    SELECT FROM recent_line_times WHERE
- *    - timestamp > now() - interval '2 hours'
- *    - ORDER BY timestamp DESC
- *    Includes:
- *    - reporter_name, reporter_status
- *    - upvotes, downvotes
- *    - user's vote if exists
- * 
- * Vote Interactions:
- * 1. Insert into line_time_votes:
- *    - line_time_id: uuid
- *    - user_id: uuid
- *    - vote_type: 'up' | 'down'
- *    - created_at: timestamp
- * 
- * 2. Update user_reputation:
- *    - total_votes_received
- *    - positive_votes_received
- *    - reputation_points (+1 for up, -1 for down)
- * 
- * Components:
- * - SearchBar: Filters bars by name
- * - BarCard: Shows bar info and current estimated wait time
- *   - Bar name and distance
- *   - Current estimated wait time (top right)
- *   - Most recent line time report
- *   - Expandable list of older reports
- * - LineTimeReport: Individual wait time report
- *   - Reporter status emoji (👤regular, ⭐trusted, 👑expert)
- *   - Reporter name
- *   - Reported wait time
- *   - Time ago
- *   - Voting buttons (upvote/downvote)
- * 
- * Features:
- * - Pull to refresh
- * - Location-based sorting
- * - Time-weighted wait time estimation
- * - Vote-based report reliability
- * - Expert status indicators
- * 
- * Real-time Updates:
- * - Supabase realtime subscription to line_time_posts
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -102,35 +7,720 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
+  Animated,
+  Platform,
+  StatusBar,
+  TextInput,
+  Modal,
+  Switch,
+  ScrollView,
+  Image,
+  Dimensions,
 } from 'react-native';
-import { useNavigation, useRoute, useNavigationState } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  useNavigation,
+  useRoute,
+  useNavigationState,
+} from '@react-navigation/native';
+import {
+  MaterialCommunityIcons,
+  Ionicons,
+} from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { useNearbyBars } from '../hooks/useNearbyBars';
-import { useRecentLineTimes } from '../hooks/useRecentLineTimes';
 import { useLocation } from '../context/LocationContext';
-import { useReputation } from '../context/ReputationContext';
 import { theme as defaultTheme, useTheme } from '../theme/theme';
-import { calculateDistance } from '../services/location';
-import { calculateEstimatedWaitTime, formatLineTimeReport, EXPERT_STATUS_EMOJI } from '../utils/lineTimeUtils';
+import { Bar } from '../types/bar';
+import { supabase } from '../services/supabase';
+import { useBarReports, BarReport } from '../hooks/useBarReports';
 
-interface BarWithLineTime {
-  id: string;
-  name: string;
-  distance: number;
-  estimatedWait?: {
-    minutes: number;
-    category: string;
-  };
-  recentReports: Array<{
-    id: string;
-    minutes: number;
-    timestamp: string;
-    reporter_name: string;
-    reporter_status: 'regular' | 'trusted' | 'expert';
-    user_vote?: 'up' | 'down';
-  }>;
+interface BarStatus {
+  waitMinutes: number | null;
+  capacityPercentage: number | null;
+  crowdDensity: 'light' | 'moderate' | 'packed' | null;
+  coverCharge: number | null;
+  lastReportTime: string | null;
+  confidence: number;
 }
+
+interface BarAttributes {
+  musicType?: string;
+  atmosphere?: string;
+  dressCode?: string;
+}
+
+interface BarAmenities {
+  poolTables?: boolean;
+  darts?: boolean;
+  danceFloor?: boolean;
+  outdoorSeating?: boolean;
+}
+
+interface EnhancedBar extends Bar {
+  status: BarStatus;
+  attributes?: BarAttributes;
+  amenities?: BarAmenities;
+  happyHour?: {
+    isActive: boolean;
+    description: string;
+    endsAt: string;
+  };
+  currentEvent?: {
+    name: string;
+    type: 'live_music' | 'dj' | 'special_event';
+    coverCharge: number;
+  };
+}
+
+interface FilterOptions {
+  maxDistance: number;
+  maxWaitTime: number | null;
+  crowdDensity: ('light' | 'moderate' | 'packed')[];
+  amenities: {
+    poolTables: boolean;
+    darts: boolean;
+    danceFloor: boolean;
+    outdoorSeating: boolean;
+  };
+}
+
+const defaultFilters: FilterOptions = {
+  maxDistance: 5,
+  maxWaitTime: null,
+  crowdDensity: [],
+  amenities: {
+    poolTables: false,
+    darts: false,
+    danceFloor: false,
+    outdoorSeating: false,
+  },
+};
+
+const SearchHeader: React.FC<{
+  onSearch: (text: string) => void;
+  onFilter: () => void;
+}> = ({ onSearch, onFilter }) => {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.searchHeader}>
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={20} color={theme.colors.text} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search bars..."
+          placeholderTextColor="#666"
+          onChangeText={onSearch}
+        />
+        <TouchableOpacity onPress={onFilter}>
+          <Ionicons name="filter" size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const metersToMiles = (meters: number): string => {
+  const miles = meters / 1609.34;
+  return miles < 0.1 ? 'Less than 0.1 mi' : `${miles.toFixed(1)} mi`;
+};
+
+const StatusIndicator: React.FC<{
+  waitMinutes: number | null;
+  capacityPercentage: number | null;
+  crowdDensity: string | null;
+}> = ({ waitMinutes, capacityPercentage, crowdDensity }) => {
+  const getStatusColor = () => {
+    if (!waitMinutes) return '#666';
+    if (waitMinutes < 15) return '#4CAF50';
+    if (waitMinutes < 30) return '#FFC107';
+    return '#F44336';
+  };
+
+  return (
+    <View style={styles.statusContainer}>
+      <View style={[styles.waitBadge, { backgroundColor: getStatusColor() }]}>
+        <Text style={styles.waitText}>{waitMinutes || 0} min</Text>
+      </View>
+      {capacityPercentage !== null && (
+        <View style={styles.capacityBar}>
+          <LinearGradient
+            colors={['#4CAF50', '#FFC107', '#F44336']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.capacityFill, { width: `${capacityPercentage}%` }]}
+          />
+        </View>
+      )}
+      {crowdDensity && (
+        <Text style={styles.crowdText}>{crowdDensity}</Text>
+      )}
+    </View>
+  );
+};
+
+const FilterModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  filters: FilterOptions;
+  onApplyFilters: (filters: FilterOptions) => void;
+}> = ({ visible, onClose, filters, onApplyFilters }) => {
+  const [localFilters, setLocalFilters] = useState<FilterOptions>(filters);
+  const theme = useTheme();
+
+  const handleDistanceChange = (value: string) => {
+    const distance = parseInt(value);
+    if (!isNaN(distance) && distance > 0) {
+      setLocalFilters(prev => ({ ...prev, maxDistance: distance }));
+    }
+  };
+
+  const handleWaitTimeChange = (value: string) => {
+    const waitTime = parseInt(value);
+    if (!isNaN(waitTime) && waitTime >= 0) {
+      setLocalFilters(prev => ({ ...prev, maxWaitTime: waitTime }));
+    }
+  };
+
+  const toggleCrowdDensity = (density: 'light' | 'moderate' | 'packed') => {
+    setLocalFilters(prev => ({
+      ...prev,
+      crowdDensity: prev.crowdDensity.includes(density)
+        ? prev.crowdDensity.filter(d => d !== density)
+        : [...prev.crowdDensity, density],
+    }));
+  };
+
+  const toggleAmenity = (amenity: keyof FilterOptions['amenities']) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        [amenity]: !prev.amenities[amenity],
+      },
+    }));
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Filter Bars</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            {/* Distance Filter */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterTitle}>Maximum Distance</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={localFilters.maxDistance.toString()}
+                onChangeText={handleDistanceChange}
+                placeholder="Enter distance in miles"
+              />
+            </View>
+
+            {/* Wait Time Filter */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterTitle}>Maximum Wait Time</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={localFilters.maxWaitTime?.toString() || ''}
+                onChangeText={handleWaitTimeChange}
+                placeholder="Enter max wait time in minutes"
+              />
+            </View>
+
+            {/* Crowd Density Filter */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterTitle}>Crowd Density</Text>
+              {(['light', 'moderate', 'packed'] as const).map(density => (
+                <TouchableOpacity
+                  key={density}
+                  style={[
+                    styles.densityOption,
+                    localFilters.crowdDensity.includes(density) && styles.selectedDensity,
+                  ]}
+                  onPress={() => toggleCrowdDensity(density)}
+                >
+                  <Text style={styles.densityText}>
+                    {density.charAt(0).toUpperCase() + density.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Amenities Filter */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterTitle}>Amenities</Text>
+              {Object.entries(localFilters.amenities).map(([key, value]) => (
+                <View key={key} style={styles.amenityRow}>
+                  <Text style={styles.amenityText}>
+                    {formatAmenityName(key)}
+                  </Text>
+                  <Switch
+                    value={value}
+                    onValueChange={() => toggleAmenity(key as keyof FilterOptions['amenities'])}
+                  />
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.resetButton]}
+              onPress={() => setLocalFilters(defaultFilters)}
+            >
+              <Text style={styles.buttonText}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.applyButton]}
+              onPress={() => {
+                onApplyFilters(localFilters);
+                onClose();
+              }}
+            >
+              <Text style={[styles.buttonText, styles.applyButtonText]}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const PhotoGallery: React.FC<{
+  photos: { url: string; reportId: string }[];
+  onClose: () => void;
+  visible: boolean;
+  initialIndex?: number;
+}> = ({ photos, onClose, visible, initialIndex = 0 }) => {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const screenWidth = Dimensions.get('window').width;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.galleryOverlay}>
+        <TouchableOpacity
+          style={styles.galleryCloseButton}
+          onPress={onClose}
+        >
+          <Ionicons name="close" size={24} color="white" />
+        </TouchableOpacity>
+        
+        <FlatList
+          data={photos}
+          horizontal
+          pagingEnabled
+          initialScrollIndex={initialIndex}
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.reportId}
+          onMomentumScrollEnd={(e) => {
+            setCurrentIndex(
+              Math.floor(e.nativeEvent.contentOffset.x / screenWidth)
+            );
+          }}
+          renderItem={({ item }) => (
+            <View style={[styles.galleryImage, { width: screenWidth }]}>
+              <Image
+                source={{ uri: item.url }}
+                style={styles.galleryImageContent}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+        />
+        
+        <View style={styles.galleryPagination}>
+          <Text style={styles.galleryPaginationText}>
+            {currentIndex + 1} / {photos.length}
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const ReportHistoryModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  bar: Bar;
+}> = ({ visible, onClose, bar }) => {
+  const theme = useTheme();
+  const { reports, loading, error, refreshReports, upvoteReport, downvoteReport } = useBarReports(bar.id);
+  const [showGallery, setShowGallery] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
+  const photos = useMemo(() => 
+    reports
+      .filter(report => report.photo_url)
+      .map(report => ({
+        url: report.photo_url!,
+        reportId: report.id
+      })),
+    [reports]
+  );
+
+  const formatTime = (date: string) => {
+    const now = new Date();
+    const reportTime = new Date(date);
+    const diff = now.getTime() - reportTime.getTime();
+    const minutes = Math.floor(diff / 60000);
+    
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    } else if (minutes < 1440) {
+      return `${Math.floor(minutes / 60)}h ago`;
+    } else {
+      return reportTime.toLocaleDateString();
+    }
+  };
+
+  const getConfidenceColor = (score: number) => {
+    if (score >= 0.7) return '#4CAF50';
+    if (score >= 0.4) return '#FFC107';
+    return '#F44336';
+  };
+
+  const renderReport = ({ item: report }: { item: BarReport }) => (
+    <View style={styles.reportCard}>
+      <View style={styles.reportHeader}>
+        <View style={styles.reportInfo}>
+          <Text style={styles.reportTime}>{formatTime(report.created_at)}</Text>
+          <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(report.confidence_score) }]}>
+            <Text style={styles.confidenceText}>
+              {Math.round(report.confidence_score * 100)}% confidence
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.reportUser}>by {report.user.username}</Text>
+      </View>
+
+      <View style={styles.reportContent}>
+        <View style={styles.reportStats}>
+          <Text style={styles.reportWaitTime}>{report.wait_minutes} min wait</Text>
+          <Text style={styles.reportCrowdDensity}>
+            {report.crowd_density.charAt(0).toUpperCase() + report.crowd_density.slice(1)} crowd
+          </Text>
+        </View>
+
+        {report.notes && (
+          <Text style={styles.reportNotes}>{report.notes}</Text>
+        )}
+
+        {report.photo_url && (
+          <TouchableOpacity
+            onPress={() => {
+              const index = photos.findIndex(p => p.url === report.photo_url);
+              setSelectedPhotoIndex(index);
+              setShowGallery(true);
+            }}
+          >
+            <Image
+              source={{ uri: report.photo_url }}
+              style={styles.reportPhoto}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.reportFooter}>
+        <TouchableOpacity
+          style={styles.voteButton}
+          onPress={() => upvoteReport(report.id)}
+        >
+          <Ionicons
+            name="thumbs-up"
+            size={20}
+            color={theme.colors.primary}
+          />
+          <Text style={styles.voteCount}>{Number(report.upvotes).toString()}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.voteButton}
+          onPress={() => downvoteReport(report.id)}
+        >
+          <Ionicons
+            name="thumbs-down"
+            size={20}
+            color={theme.colors.text}
+          />
+          <Text style={styles.voteCount}>{Number(report.downvotes).toString()}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.historyContainer}>
+        <View style={styles.historyHeader}>
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.historyTitle}>Line History - {bar.name}</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        {loading ? (
+          <ActivityIndicator style={styles.historyLoading} />
+        ) : error ? (
+          <Text style={styles.historyError}>{error}</Text>
+        ) : (
+          <FlatList
+            data={reports}
+            renderItem={renderReport}
+            keyExtractor={(item) => item.id}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={refreshReports}
+              />
+            }
+            ListEmptyComponent={
+              <Text style={styles.historyEmpty}>No line reports yet</Text>
+            }
+          />
+        )}
+      </View>
+
+      <PhotoGallery
+        photos={photos}
+        visible={showGallery}
+        onClose={() => setShowGallery(false)}
+        initialIndex={selectedPhotoIndex}
+      />
+    </Modal>
+  );
+};
+
+interface ReportModalProps {
+  visible: boolean;
+  onClose: () => void;
+  bar: Bar;
+  onSubmit: (report: LineReport) => Promise<void>;
+}
+
+interface LineReport {
+  barId: string;                                           // UUID string
+  waitMinutes: number;                                     // Integer
+  capacityPercentage: number;                             // Integer
+  crowdDensity: 'light' | 'moderate' | 'packed';          // Text (enum)
+  coverCharge: number;                                     // Numeric
+}
+
+const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubmit }) => {
+  const theme = useTheme();
+  const { location, errorMsg, loading: locationLoading, requestLocationPermission } = useLocation();
+  const [waitMinutes, setWaitMinutes] = useState('');
+  const [crowdDensity, setCrowdDensity] = useState<'light' | 'moderate' | 'packed'>('moderate');
+  const [capacityPercentage, setCapacityPercentage] = useState('');
+  const [coverCharge, setCoverCharge] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (visible && !location) {
+      requestLocationPermission();
+    }
+  }, [visible, location, requestLocationPermission]);
+
+  const handleSubmit = async () => {
+    if (!location) {
+      setError('Location permission is required to submit a report. Please enable location services and try again.');
+      return;
+    }
+
+    if (!waitMinutes || parseInt(waitMinutes) < 0) {
+      setError('Please enter a valid wait time');
+      return;
+    }
+
+    if (!capacityPercentage || parseInt(capacityPercentage) < 0 || parseInt(capacityPercentage) > 100) {
+      setError('Please enter a valid capacity percentage (0-100)');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await onSubmit({
+        barId: bar.id,
+        waitMinutes: parseInt(waitMinutes),
+        capacityPercentage: parseInt(capacityPercentage),
+        crowdDensity,
+        coverCharge: parseFloat(coverCharge) || 0
+      });
+
+      // Clear form
+      setWaitMinutes('');
+      setCrowdDensity('moderate');
+      setCapacityPercentage('');
+      setCoverCharge('');
+      onClose();
+    } catch (err) {
+      console.error('Modal submission error:', err);
+      // Get the error message from the Error object
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit report';
+      setError(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Report Line at {bar.name}</Text>
+            <TouchableOpacity onPress={onClose} disabled={submitting}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            {/* Location Warning */}
+            {!location && !locationLoading && (
+              <View style={styles.warningContainer}>
+                <Ionicons name="warning" size={24} color={theme.colors.warning} />
+                <Text style={styles.warningText}>
+                  {errorMsg || 'Location permission is required to submit a report. Please enable location services.'}
+                </Text>
+              </View>
+            )}
+
+            {/* Wait Time Input */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Wait Time (minutes)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={waitMinutes}
+                onChangeText={setWaitMinutes}
+                placeholder="Enter wait time"
+                editable={!submitting}
+              />
+            </View>
+
+            {/* Capacity Percentage */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Capacity Percentage (0-100)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={capacityPercentage}
+                onChangeText={setCapacityPercentage}
+                placeholder="Enter capacity percentage"
+                editable={!submitting}
+              />
+            </View>
+
+            {/* Cover Charge */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Cover Charge ($)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={coverCharge}
+                onChangeText={setCoverCharge}
+                placeholder="Enter cover charge (optional)"
+                editable={!submitting}
+              />
+            </View>
+
+            {/* Crowd Density Selection */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Crowd Density</Text>
+              <View style={styles.densityOptions}>
+                {(['light', 'moderate', 'packed'] as const).map((density) => (
+                  <TouchableOpacity
+                    key={density}
+                    style={[
+                      styles.densityOption,
+                      crowdDensity === density && styles.selectedDensity,
+                    ]}
+                    onPress={() => setCrowdDensity(density)}
+                    disabled={submitting}
+                  >
+                    <Text
+                      style={[
+                        styles.densityText,
+                        crowdDensity === density && styles.selectedDensityText,
+                      ]}
+                    >
+                      {density.charAt(0).toUpperCase() + density.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {error && (
+              <Text style={styles.errorText}>{error}</Text>
+            )}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.cancelButton]}
+              onPress={onClose}
+              disabled={submitting}
+            >
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.footerButton,
+                styles.submitButton,
+                (!location || submitting || locationLoading) && styles.disabledButton,
+              ]}
+              onPress={handleSubmit}
+              disabled={!location || submitting || locationLoading}
+            >
+              {submitting || locationLoading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={[styles.buttonText, styles.submitButtonText]}>
+                  Submit Report
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export const LineTimesScreen: React.FC = () => {
   const theme = useTheme();
@@ -138,400 +728,769 @@ export const LineTimesScreen: React.FC = () => {
   const route = useRoute();
   const navState = useNavigationState(state => state);
   const { location } = useLocation();
-  const { profile, barReports, voteOnLineTime } = useReputation();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedBar, setExpandedBar] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>(defaultFilters);
+  const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const { bars, loading: barsLoading, error: barsError, refreshBars } = useNearbyBars(20);
-  const { recentLineTimes, loading: lineTimesLoading, error: lineTimesError, refreshLineTimes } = useRecentLineTimes();
+  // Round the distance to the nearest meter
+  const radiusMeters = Math.round(filters.maxDistance * 1609.34);
+  const { bars, loading, error, refreshBars } = useNearbyBars(radiusMeters);
 
-  const [recentLineTimesState, setRecentLineTimesState] = useState(recentLineTimes);
+  const filteredBars = useMemo(() => {
+    return bars
+      .map(bar => ({
+        ...bar,
+        status: {
+          waitMinutes: bar.current_wait_minutes || 0,
+          capacityPercentage: bar.capacity_percentage || null,
+          crowdDensity: bar.crowd_density as BarStatus['crowdDensity'],
+          coverCharge: null,
+          lastReportTime: null,
+          confidence: 1,
+        },
+      }))
+      .filter(bar => {
+        // Search query filter
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const matchesName = bar.name.toLowerCase().includes(query);
+          const matchesAddress = bar.address.toLowerCase().includes(query);
+          if (!matchesName && !matchesAddress) return false;
+        }
 
-  useEffect(() => {
-    setRecentLineTimesState(recentLineTimes);
-  }, [recentLineTimes]);
+        // Wait time filter
+        if (filters.maxWaitTime !== null && bar.current_wait_minutes !== null) {
+          if (bar.current_wait_minutes > filters.maxWaitTime) return false;
+        }
 
-  useEffect(() => {
-    const currentRoute = navState.routes[navState.routes.length - 1];
-    if (currentRoute?.params?.payload?.refresh) {
-      refreshLineTimes();
-      refreshBars();
-    }
-  }, [navState]);
+        // Crowd density filter
+        if (filters.crowdDensity.length > 0 && bar.crowd_density) {
+          if (!filters.crowdDensity.includes(bar.crowd_density as any)) return false;
+        }
 
-  useEffect(() => {
-    if (route.params?.refresh) {
-      refreshLineTimes();
-      refreshBars();
-    }
-  }, [route.params?.refresh]);
+        // Amenities filter
+        const hasSelectedAmenities = Object.entries(filters.amenities)
+          .some(([key, value]) => value && bar.amenities?.[key as keyof typeof bar.amenities]);
+        
+        if (hasSelectedAmenities) {
+          const matchesAllSelected = Object.entries(filters.amenities)
+            .every(([key, value]) => !value || bar.amenities?.[key as keyof typeof bar.amenities]);
+          if (!matchesAllSelected) return false;
+        }
+
+        return true;
+      });
+  }, [bars, searchQuery, filters]);
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  const handleFilter = () => {
+    setShowFilters(true);
+  };
+
+  const handleApplyFilters = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refreshLineTimes(), refreshBars()]);
+    await refreshBars();
     setRefreshing(false);
-  }, [refreshLineTimes, refreshBars]);
+  }, [refreshBars]);
 
-  const processedBars: BarWithLineTime[] = bars.map(bar => {
-    const barLineTimes = recentLineTimesState.filter(lt => lt.bar_id === bar.id);
-    const estimatedWait = calculateEstimatedWaitTime(barLineTimes);
+  const renderBar = ({ item }: { item: EnhancedBar }) => (
+    <TouchableOpacity
+      style={[
+        styles.barCard,
+        expandedBar === item.id && styles.expandedCard
+      ]}
+      onPress={() => setExpandedBar(expandedBar === item.id ? null : item.id)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.barHeader}>
+        <View style={styles.barInfo}>
+          <Text style={styles.barName}>{item.name}</Text>
+          <Text style={styles.barAddress}>{item.address}</Text>
+          <Text style={styles.distance}>
+            {metersToMiles(item.distance_meters)} away
+          </Text>
+        </View>
+        <StatusIndicator
+          waitMinutes={item.status.waitMinutes}
+          capacityPercentage={item.status.capacityPercentage}
+          crowdDensity={item.status.crowdDensity}
+        />
+      </View>
+      
+      {expandedBar === item.id && (
+        <View style={styles.expandedContent}>
+          {item.amenities && (
+            <View style={styles.amenitiesContainer}>
+              {Object.entries(item.amenities).map(([key, value]) => (
+                value && (
+                  <View key={key} style={styles.amenityBadge}>
+                    <MaterialCommunityIcons
+                      name={getAmenityIcon(key)}
+                      size={16}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.amenityText}>
+                      {formatAmenityName(key)}
+                    </Text>
+                  </View>
+                )
+              ))}
+            </View>
+          )}
+          
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                setSelectedBar(item);
+                setShowReportModal(true);
+              }}
+            >
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.actionButtonText}>Report Line</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                setSelectedBar(item);
+                setShowHistory(true);
+              }}
+            >
+              <MaterialCommunityIcons
+                name="history"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.actionButtonText}>View History</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 
-    return {
-      id: bar.id,
-      name: bar.name,
-      distance: bar.distance,
-      estimatedWait,
-      recentReports: barLineTimes.map(lt => ({
-        id: lt.id,
-        minutes: lt.minutes,
-        timestamp: lt.timestamp,  
-        reporter_name: lt.reporter_name,
-        reporter_status: lt.reporter_status,
-        user_vote: lt.user_vote,
-      })),
-    };
-  });
+  const handleReport = async (report: LineReport) => {
+    if (!location) {
+      throw new Error('Location permission is required to submit a report');
+    }
 
-  const handleVote = async (reportId: string, voteType: 'up' | 'down') => {
     try {
-      setRecentLineTimesState(prev => 
-        prev.map(report => {
-          if (report.id === reportId) {
-            return {
-              ...report,
-              user_vote: voteType
-            };
-          }
-          return report;
-        })
+      const params = {
+        p_bar_id: report.barId,
+        p_wait_minutes: Math.round(report.waitMinutes),
+        p_capacity_percentage: Math.round(report.capacityPercentage),
+        p_crowd_density: report.crowdDensity,
+        p_cover_charge: Number(report.coverCharge) || 0,
+        p_user_lat: Number(location.latitude),
+        p_user_lng: Number(location.longitude)
+      };
+
+      console.log('Submitting report with params:', params);
+      const { data, error } = await supabase.rpc(
+        'submit_line_report',
+        params
       );
 
-      await voteOnLineTime(reportId, voteType);
+      console.log('Response data:', data);
+      console.log('Response error:', error);
+
+      if (error) {
+        throw new Error(error.details || error.message || 'Failed to submit report');
+      }
+
+      // The response is an array with one object
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('Invalid response format from server');
+      }
+
+      const result = data[0];
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to submit report');
+      }
+
+      console.log('Report submitted successfully:', result);
+      refreshBars();
     } catch (err) {
-      setRecentLineTimesState(recentLineTimes);
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit vote');
+      console.error('Error in handleReport:', err);
+      throw err;
     }
   };
 
-  const renderBar = ({ item: bar }: { item: BarWithLineTime }) => {
-    const isExpanded = expandedBar === bar.id;
-    const barReport = barReports.find(report => report.bar_id === bar.id);
-    const canAddLineTime = !barReport || 
-      (Date.now() - new Date(barReport.last_report_at).getTime() > 5 * 60 * 1000);
-
+  if (loading) {
     return (
-      <TouchableOpacity
-        style={[styles.barCard, { borderColor: theme.colors.border }]}
-        onPress={() => navigation.navigate('BarDetails', { barId: bar.id })}
-      >
-        <View style={styles.barHeader}>
-          <View style={styles.barInfo}>
-            <Text style={[styles.barName, { color: theme.colors.text }]}>{bar.name}</Text>
-            <Text style={[styles.distance, { color: theme.colors.textSecondary }]}>
-              {bar.distance.toFixed(1)} miles away
-            </Text>
-          </View>
-          {bar.estimatedWait && (
-            <View style={styles.waitInfo}>
-              <Text style={[styles.currentLineText, { color: theme.colors.text }]}>
-                {bar.estimatedWait.category}
-              </Text>
-              {bar.estimatedWait.minutes > 0 && (
-                <Text style={[styles.waitTime, { color: theme.colors.primary }]}>
-                  ~{bar.estimatedWait.minutes} min
-                </Text>
-              )}
-            </View>
-          )}
-        </View>
-
-        {bar.recentReports.length > 0 && (
-          <View style={styles.recentReports}>
-            <View style={styles.reportHeader}>
-              <View style={styles.reportContent}>
-                <Text style={[styles.reportText, { color: theme.colors.text, flex: 1 }]}>
-                  {formatLineTimeReport(bar.recentReports[0])}
-                </Text>
-                <View style={styles.voteButtons}>
-                  <TouchableOpacity 
-                    style={[
-                      styles.voteButton, 
-                      styles.upvoteButton,
-                      bar.recentReports[0].user_vote === 'up' && styles.votedButton,
-                      bar.recentReports[0].user_vote === 'down' && styles.disabledButton
-                    ]}
-                    onPress={() => handleVote(bar.recentReports[0].id, 'up')}
-                    disabled={bar.recentReports[0].user_vote === 'down'}
-                  >
-                    <MaterialCommunityIcons 
-                      name="thumb-up" 
-                      size={16} 
-                      color={bar.recentReports[0].user_vote === 'up' 
-                        ? theme.colors.primary 
-                        : bar.recentReports[0].user_vote === 'down'
-                        ? theme.colors.disabled
-                        : theme.colors.text
-                      } 
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[
-                      styles.voteButton, 
-                      styles.downvoteButton,
-                      bar.recentReports[0].user_vote === 'down' && styles.votedButton,
-                      bar.recentReports[0].user_vote === 'up' && styles.disabledButton
-                    ]}
-                    onPress={() => handleVote(bar.recentReports[0].id, 'down')}
-                    disabled={bar.recentReports[0].user_vote === 'up'}
-                  >
-                    <MaterialCommunityIcons 
-                      name="thumb-down" 
-                      size={16} 
-                      color={bar.recentReports[0].user_vote === 'down' 
-                        ? theme.colors.error 
-                        : bar.recentReports[0].user_vote === 'up'
-                        ? theme.colors.disabled
-                        : theme.colors.text
-                      } 
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <TouchableOpacity 
-                onPress={() => setExpandedBar(isExpanded ? null : bar.id)}
-                style={styles.expandButton}
-              >
-                <MaterialCommunityIcons
-                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={24}
-                  color={theme.colors.text}
-                />
-              </TouchableOpacity>
-            </View>
-            
-            {isExpanded && bar.recentReports.slice(1).map((report) => (
-              <View key={report.id} style={styles.reportRow}>
-                <Text style={[styles.reportText, { color: theme.colors.textSecondary, flex: 1 }]}>
-                  {formatLineTimeReport(report)}
-                </Text>
-                <View style={styles.voteButtons}>
-                  <TouchableOpacity 
-                    style={[
-                      styles.voteButton, 
-                      styles.upvoteButton,
-                      report.user_vote === 'up' && styles.votedButton,
-                      report.user_vote === 'down' && styles.disabledButton
-                    ]}
-                    onPress={() => handleVote(report.id, 'up')}
-                    disabled={report.user_vote === 'down'}
-                  >
-                    <MaterialCommunityIcons 
-                      name="thumb-up" 
-                      size={16} 
-                      color={report.user_vote === 'up' 
-                        ? theme.colors.primary 
-                        : report.user_vote === 'down'
-                        ? theme.colors.disabled
-                        : theme.colors.text
-                      } 
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[
-                      styles.voteButton, 
-                      styles.downvoteButton,
-                      report.user_vote === 'down' && styles.votedButton,
-                      report.user_vote === 'up' && styles.disabledButton
-                    ]}
-                    onPress={() => handleVote(report.id, 'down')}
-                    disabled={report.user_vote === 'up'}
-                  >
-                    <MaterialCommunityIcons 
-                      name="thumb-down" 
-                      size={16} 
-                      color={report.user_vote === 'down' 
-                        ? theme.colors.error 
-                        : report.user_vote === 'up'
-                        ? theme.colors.disabled
-                        : theme.colors.text
-                      } 
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {canAddLineTime && (
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => navigation.navigate('AddLineTime', { barId: bar.id })}
-          >
-            <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-            <Text style={styles.addButtonText}>Add Line Time</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  if (barsLoading || lineTimesLoading) {
-    return (
-      <View style={[styles.container, styles.centered]}>
+      <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
-  if (barsError || lineTimesError) {
+  if (error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          {barsError || lineTimesError}
-        </Text>
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>{error}</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.container}>
+      <SearchHeader onSearch={handleSearch} onFilter={handleFilter} />
       <FlatList
-        data={processedBars}
+        data={filteredBars}
         renderItem={renderBar}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            {searchQuery || Object.values(filters.amenities).some(v => v)
+              ? 'No bars match your search criteria'
+              : 'No bars found nearby'}
+          </Text>
+        }
+        contentContainerStyle={styles.listContent}
       />
+      
+      <FilterModal
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        filters={filters}
+        onApplyFilters={handleApplyFilters}
+      />
+
+      {selectedBar && showReportModal && (
+        <ReportModal
+          visible={showReportModal}
+          onClose={() => {
+            setShowReportModal(false);
+            setSelectedBar(null);
+          }}
+          bar={selectedBar}
+          onSubmit={handleReport}
+        />
+      )}
+
+      {selectedBar && showHistory && (
+        <ReportHistoryModal
+          visible={showHistory}
+          onClose={() => {
+            setShowHistory(false);
+            setSelectedBar(null);
+          }}
+          bar={selectedBar}
+        />
+      )}
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          setSelectedBar(bars[0]); // For quick testing, use first bar
+          setShowReportModal(true);
+        }}
+      >
+        <MaterialCommunityIcons
+          name="clock-plus-outline"
+          size={24}
+          color="white"
+        />
+      </TouchableOpacity>
     </View>
   );
+};
+
+const getAmenityIcon = (amenity: string): string => {
+  const icons: Record<string, string> = {
+    poolTables: 'pool',
+    darts: 'target',
+    danceFloor: 'dance-ballroom',
+    outdoorSeating: 'umbrella-beach',
+  };
+  return icons[amenity] || 'help-circle-outline';
+};
+
+const formatAmenityName = (key: string): string => {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase());
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight : 0,
   },
-  centered: {
-    justifyContent: 'center',
+  searchHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  searchBar: {
+    flexDirection: 'row',
     alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
   },
-  list: {
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#000',
+  },
+  listContent: {
     padding: 16,
   },
   barCard: {
+    backgroundColor: '#fff',
     borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
     marginBottom: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  expandedCard: {
+    elevation: 4,
+    shadowOpacity: 0.15,
   },
   barHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
   },
   barInfo: {
     flex: 1,
   },
-  waitInfo: {
-    alignItems: 'flex-end',
-  },
   barName: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  barAddress: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
   },
   distance: {
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 12,
+    color: '#888',
   },
-  currentLineText: {
-    fontSize: 16,
-    fontWeight: '500',
+  statusContainer: {
+    alignItems: 'flex-end',
   },
-  waitTime: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 2,
+  waitBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 4,
   },
-  recentReports: {
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: defaultTheme.colors.border,
-  },
-  reportHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  reportContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  reportRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  reportText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  voteButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  voteButton: {
-    padding: 8,
-    borderRadius: 4,
-    marginHorizontal: 2,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
-  upvoteButton: {
-    borderColor: defaultTheme.colors.primary,
-    borderWidth: 1,
-  },
-  downvoteButton: {
-    borderColor: defaultTheme.colors.error,
-    borderWidth: 1,
-  },
-  votedButton: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-  },
-  disabledButton: {
-    opacity: 0.5,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    borderColor: defaultTheme.colors.disabled,
-  },
-  expandButton: {
-    padding: 4,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  addButtonText: {
+  waitText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 14,
+  },
+  capacityBar: {
+    width: 100,
+    height: 4,
+    backgroundColor: '#eee',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  capacityFill: {
+    height: '100%',
+  },
+  crowdText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  expandedContent: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  amenitiesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  amenityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  amenityText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  actionButton: {
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     fontSize: 16,
+    color: 'red',
     textAlign: 'center',
     padding: 16,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#666',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalBody: {
+    padding: 16,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 16,
+  },
+  densityOption: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    marginVertical: 4,
+  },
+  selectedDensity: {
+    backgroundColor: '#2196F3',
+  },
+  densityText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  amenityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  amenityText: {
+    fontSize: 16,
+  },
+  footerButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 8,
+    alignItems: 'center',
+  },
+  resetButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  applyButton: {
+    backgroundColor: '#2196F3',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  applyButtonText: {
+    color: '#fff',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 12,
+  },
+  photoUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    borderStyle: 'dashed',
+  },
+  photoUploadText: {
+    marginLeft: 8,
+    color: '#666',
+  },
+  notesInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  inputSection: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  densityOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  selectedDensityText: {
+    color: 'white',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+  },
+  submitButtonText: {
+    color: 'white',
+  },
+  historyContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  historyLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyError: {
+    padding: 16,
+    color: 'red',
+    textAlign: 'center',
+  },
+  historyEmpty: {
+    padding: 16,
+    textAlign: 'center',
+    color: '#666',
+  },
+  reportCard: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  reportHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  reportInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reportTime: {
+    fontSize: 14,
+    color: '#666',
+    marginRight: 8,
+  },
+  confidenceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  confidenceText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  reportUser: {
+    fontSize: 14,
+    color: '#666',
+  },
+  reportContent: {
+    marginBottom: 12,
+  },
+  reportStats: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  reportWaitTime: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginRight: 16,
+  },
+  reportCrowdDensity: {
+    fontSize: 16,
+    color: '#666',
+  },
+  reportNotes: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  reportPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  reportFooter: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  voteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  voteCount: {
+    marginLeft: 4,
+    color: '#666',
+  },
+  galleryOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+  },
+  galleryCloseButton: {
+    position: 'absolute',
+    top: 40,
+    right: 16,
+    zIndex: 1,
+  },
+  galleryImage: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  galleryImageContent: {
+    width: '100%',
+    height: '100%',
+  },
+  galleryPagination: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  galleryPaginationText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  warningContainer: {
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  warningText: {
+    fontSize: 16,
+    color: '#666',
   },
 });

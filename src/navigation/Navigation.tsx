@@ -3,8 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EventsScreen } from '../screens/EventsScreen';
-import { AddLineTimeScreen } from '../screens/AddLineTimeScreen';
 import { AccountScreen } from '../screens/AccountScreen';
+import { TestScreen } from '../screens/TestScreen';
 import { RootStackParamList, MainTabParamList } from './types';
 import { theme } from '../theme/theme';
 
@@ -20,11 +20,11 @@ const MainTabs = () => {
         headerShown: false,
       }}>
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Test"
+        component={TestScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" size={size} color={color} />
+            <MaterialCommunityIcons name="map-search" size={size} color={color} />
           ),
         }}
       />
@@ -50,18 +50,13 @@ const MainTabs = () => {
   );
 };
 
-export const Navigation = () => {
+const Navigation = () => {
   return (
     <Stack.Navigator>
       <Stack.Screen
-        name="Main"
+        name="MainTabs"
         component={MainTabs}
         options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="AddLineTime"
-        component={AddLineTimeScreen}
-        options={{ title: 'Add Line Time' }}
       />
     </Stack.Navigator>
   );

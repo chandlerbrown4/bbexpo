@@ -4,8 +4,8 @@ export const developmentConfig = {
   
   // North wilkes
   devLocation: {
-    latitude: 36.1584,
-    longitude: -81.1476,
+    latitude: 36.1432,
+    longitude: -81.2085,
   },
   
   // Other development locations for testing

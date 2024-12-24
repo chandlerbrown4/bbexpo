@@ -4,45 +4,21 @@ import { useAuth } from './AuthContext';
 
 interface UserProfile {
   id: string;
-  first_name: string;
-  last_name: string;
   display_name: string;
-  preferred_bar: string | null;
 }
 
-interface UserReputation {
-  id: string;
-  user_id: string;
-  reputation_points: number;
-  total_reports: number;
-  total_votes: number;
-  positive_votes_received: number;
-}
-
-interface BarReport {
-  id: string;
-  user_id: string;
+interface BarExpertise {
   bar_id: string;
-  reports_count: number;
+  bar_name: string;
+  expertise_level: number;
+  total_reports: number;
   accuracy_rate: number;
-  status: string;
-  last_report_at: string;
-}
-
-interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  required_score: number;
-  badge_type: string;
+  last_report_at: string;  // timestamp without timezone
 }
 
 interface ReputationContextType {
   profile: UserProfile | null;
-  reputation: UserReputation | null;
-  badges: Badge[];
-  barReports: BarReport[];
+  barExpertise: BarExpertise[];
   loading: boolean;
   error: string | null;
   voteOnLineTime: (lineTimeId: string, voteType: 'up' | 'down') => Promise<void>;
@@ -54,9 +30,7 @@ const ReputationContext = createContext<ReputationContextType | undefined>(undef
 export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [reputation, setReputation] = useState<UserReputation | null>(null);
-  const [badges, setBadges] = useState<Badge[]>([]);
-  const [barReports, setBarReports] = useState<BarReport[]>([]);
+  const [barExpertise, setBarExpertise] = useState<BarExpertise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,46 +38,40 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       if (!user) {
         setProfile(null);
-        setReputation(null);
-        setBadges([]);
-        setBarReports([]);
+        setBarExpertise([]);
         return;
       }
 
+      // Get basic profile info
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, display_name')
         .eq('id', user.id)
         .single();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        throw profileError;
+      if (profileError) {
+        // If the user doesn't exist yet, that's okay - we'll just set profile to null
+        if (profileError.code === 'PGRST116') {
+          setProfile(null);
+        } else {
+          throw profileError;
+        }
+      } else {
+        setProfile(profileData);
       }
-      setProfile(profileData);
 
-      const { data: reputationData, error: reputationError } = await supabase
-        .from('user_reputation')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      // Get user expertise summary
+      const { data: expertiseData, error: expertiseError } = await supabase
+        .rpc('get_user_expertise_summary', {
+          p_user_id: user.id
+        });
 
-      if (reputationError && reputationError.code !== 'PGRST116') {
-        throw reputationError;
-      }
-      setReputation(reputationData);
+      if (expertiseError) throw expertiseError;
+      setBarExpertise(expertiseData || []);
 
-      const { data: badgeData, error: badgeError } = await supabase
-        .from('badges')
-        .select('*');
-
-      if (badgeError) {
-        console.error('Error fetching badges:', badgeError);
-      }
-      setBadges(badgeData || []);
-
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching reputation data:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -113,34 +81,12 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       if (!user) throw new Error('Must be logged in to vote');
 
-      const { data: existingVote } = await supabase
-        .from('line_time_votes')
-        .select('*')
-        .eq('line_time_id', lineTimeId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingVote) {
-        throw new Error('You have already voted on this line time');
-      }
-
-      const { data: lineTime } = await supabase
-        .from('line_time_posts')
-        .select('user_id')
-        .eq('id', lineTimeId)
-        .single();
-
-      if (!lineTime) throw new Error('Line time not found');
-
-      const { data, error } = await supabase.rpc('handle_line_time_vote', {
-        p_line_time_id: lineTimeId,
-        p_user_id: user.id,
-        p_vote_type: voteType,
-        p_reporter_id: lineTime.user_id
+      const { error } = await supabase.rpc('vote_on_line_report', {
+        p_report_id: lineTimeId,
+        p_vote_type: voteType === 'up' ? 1 : -1
       });
 
       if (error) throw error;
-
       await fetchProfile();
     } catch (error) {
       console.error('Error voting:', error);
@@ -156,9 +102,7 @@ export const ReputationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <ReputationContext.Provider 
       value={{
         profile,
-        reputation,
-        badges,
-        barReports,
+        barExpertise,
         loading,
         error,
         voteOnLineTime,
