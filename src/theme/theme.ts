@@ -19,6 +19,7 @@ export interface Theme {
     card: string;
     shadow: string;
     white: string;
+    disabled: string;
   };
   spacing: {
     xs: number;
@@ -81,20 +82,21 @@ export const lightTheme: Theme = {
   colors: {
     primary: '#fb923c',        // Main orange from logo
     primaryLight: '#f48f51',   // Light orange
-    secondary: '#ea580c',      // Darker orange variation
-    accent: '#fb923c',         // Using main orange as accent
-    background: '#FFFFFF',     // White
-    surface: '#F5F6F7',        // Light gray background ###########
-    text: '#1F2937',          // Dark text for contrast
-    textSecondary: '#6B7280',  // Secondary text color
-    error: '#DC2626',         // Red for errors
-    success: '#059669',       // Green for success
-    warning: '#D97706',       // Amber for warnings
-    info: '#3B82F6',         // Blue for info
-    border: '#E2E4E9',       // Light grey        ##########
-    card: '#FFFFFF',         // White for cards ##############
-    shadow: 'rgba(0, 0, 0, 0.1)', // Subtle shadow ############
-    white: '#FFFFFF',        // Pure white
+    secondary: '#334155',      // Slate 700
+    accent: '#0ea5e9',        // Sky 500
+    background: '#f8fafc',    // Slate 50
+    surface: '#ffffff',       // White
+    text: '#0f172a',         // Slate 900
+    textSecondary: '#64748b', // Slate 500
+    error: '#ef4444',        // Red 500
+    success: '#22c55e',      // Green 500
+    warning: '#f59e0b',      // Amber 500
+    info: '#3b82f6',         // Blue 500
+    border: '#e2e8f0',       // Slate 200
+    card: '#ffffff',         // White
+    shadow: '#94a3b8',       // Slate 400
+    white: '#ffffff',        // White
+    disabled: '#94a3b8',     // Slate 400 (same as shadow for consistency)
   },
   spacing: {
     xs: 4,
@@ -172,14 +174,13 @@ export const darkTheme: Theme = {
     card: '#1F2937',          // Dark card background
     shadow: 'rgba(0, 0, 0, 0.3)', // Darker shadow
     white: '#ffffff',         // Keep white the same
+    disabled: '#6b7280',      // Darker gray for disabled
   },
 };
 
 export const useTheme = () => {
-  // Using Appearance.getColorScheme() directly as a fallback
   const colorScheme = useColorScheme() || Appearance.getColorScheme();
   return colorScheme === 'dark' ? darkTheme : lightTheme;
 };
 
-// Export the default theme as an alias for backward compatibility
 export const theme = lightTheme;

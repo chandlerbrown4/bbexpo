@@ -1,0 +1,63 @@
+| column_name         | data_type                   | is_nullable | column_default     |
+| ------------------- | --------------------------- | ----------- | ------------------ |
+| id                  | uuid                        | NO          | uuid_generate_v4() |
+| bar_id              | uuid                        | YES         |                    |
+| reporter_id         | uuid                        | YES         |                    |
+| wait_minutes        | integer                     | YES         |                    |
+| capacity_percentage | integer                     | YES         |                    |
+| crowd_density       | text                        | YES         |                    |
+| cover_charge        | numeric                     | YES         |                    |
+| verified            | boolean                     | YES         | false              |
+| created_at          | timestamp without time zone | YES         | now()              |
+| reporter_location   | USER-DEFINED                | YES         |                    |
+| verified_proximity  | boolean                     | YES         | false              |
+
+
+
+
+| trigger_name                 |
+| ---------------------------- |
+| RI_ConstraintTrigger_c_29283 |
+| RI_ConstraintTrigger_c_29284 |
+| RI_ConstraintTrigger_a_29297 |
+| RI_ConstraintTrigger_a_29298 |
+| RI_ConstraintTrigger_c_30464 |
+| RI_ConstraintTrigger_c_30465 |
+| award_line_report_points     |
+
+
+
+| constraint_name               | definition                                                            |
+| ----------------------------- | --------------------------------------------------------------------- |
+| line_reports_bar_id_fkey      | FOREIGN KEY (bar_id) REFERENCES bars(id)                              |
+| line_reports_pkey             | PRIMARY KEY (id)                                                      |
+| line_reports_reporter_id_fkey | FOREIGN KEY (reporter_id) REFERENCES auth.users(id) ON DELETE CASCADE |
+
+
+
+
+| column              | type                        | notnull |
+| ------------------- | --------------------------- | ------- |
+| id                  | uuid                        | true    |
+| bar_id              | uuid                        | false   |
+| reporter_id         | uuid                        | false   |
+| wait_minutes        | integer                     | false   |
+| capacity_percentage | integer                     | false   |
+| crowd_density       | text                        | false   |
+| cover_charge        | numeric                     | false   |
+| verified            | boolean                     | false   |
+| created_at          | timestamp without time zone | false   |
+| reporter_location   | geography(Point,4326)       | false   |
+| verified_proximity  | boolean                     | false   |
+
+
+
+
+| schema | name                             | type     |
+| ------ | -------------------------------- | -------- |
+| public | get_bar_line_reports             | function |
+| public | get_line_report_media            | function |
+| public | submit_line_report               | function |
+| public | trigger_award_line_report_points | function |
+| public | validate_line_report             | function |
+| public | vote_on_line_report              | function |

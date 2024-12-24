@@ -4,17 +4,28 @@ import { supabase } from '../services/supabase';
 
 interface UserProfile {
   id: string;
-  first_name: string;
-  last_name: string;
+  auth_id: string;
+  display_name: string;
+  bio: string | null;
+  avatar_url: string | null;
   date_of_birth: string;
   created_at: string;
   updated_at: string;
+}
+
+interface UserPreferences {
+  preferred_radius: number;
+  preferred_bar_types: string[];
+  notification_settings: any;
+  privacy_settings: any;
 }
 
 interface User {
   id: string;
   email: string;
   profile?: UserProfile;
+  preferences?: UserPreferences;
+  reputation?: number;
 }
 
 type AuthContextType = {
@@ -58,24 +69,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getUserWithProfile = async (userId: string): Promise<User | null> => {
     try {
+      // Get user from auth
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) return null;
+
+      // Fetch user profile
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('auth_id', userId)
         .single();
 
       if (profileError) throw profileError;
 
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      // Fetch user preferences
+      const { data: preferences, error: preferencesError } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (preferencesError) throw preferencesError;
+
+      // Calculate total reputation
+      const { data: reputation, error: reputationError } = await supabase
+        .from('reputation_events')
+        .select('points')
+        .eq('user_id', userId);
+
+      if (reputationError) throw reputationError;
+
+      const totalReputation = reputation?.reduce((sum, event) => sum + event.points, 0) || 0;
 
       return {
         id: user.id,
         email: user.email!,
         profile: profile || undefined,
+        preferences: preferences || undefined,
+        reputation: totalReputation,
       };
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error in getUserWithProfile:', error);
       return null;
     }
   };
@@ -120,43 +155,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dateOfBirth: Date;
   }) => {
     try {
-      // Verify age
-      const today = new Date();
-      const age = today.getFullYear() - dateOfBirth.getFullYear();
-      const monthDiff = today.getMonth() - dateOfBirth.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
-        age--;
-      }
-      
-      if (age < 13) {
-        throw new Error('You must be 13 or older to use this app');
-      }
-
-      // Create auth user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
-      if (signUpError) throw signUpError;
 
+      if (signUpError) throw signUpError;
       if (!data.user) throw new Error('No user returned from sign up');
 
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: data.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          date_of_birth: dateOfBirth.toISOString().split('T')[0],
-        });
-
-      if (profileError) {
-        // Attempt to clean up auth user if profile creation fails
-        await supabase.auth.signOut();
-        throw profileError;
-      }
     } catch (error) {
+      console.error('Error in signUp:', error);
+      await supabase.auth.signOut();
       throw error;
     }
   };

@@ -8,7 +8,7 @@ export interface Event {
   bar_id: string;
   name: string;
   description: string | null;
-  date: string; // ISO string from database
+  date: string;
   count: number;
   bar: {
     name: string;
@@ -31,12 +31,16 @@ export const useEvents = (): UseEventsResult => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const fetchEvents = async (startDate: Date, endDate: Date) => {
+  const fetchEvents = async (startDate: Date = new Date(), endDate: Date = new Date()) => {
+    endDate.setDate(startDate.getDate() + 30);
+
     try {
       setLoading(true);
       setError(null);
 
-      // First fetch all events
+      console.log('StartDate:', startDate);
+      console.log('EndDate:', endDate);
+
       const { data: eventsData, error: fetchError } = await supabase
         .from('events')
         .select(`
@@ -51,8 +55,8 @@ export const useEvents = (): UseEventsResult => {
         .order('date', { ascending: true });
 
       if (fetchError) throw fetchError;
+      console.log('Fetched events data:', eventsData);
 
-      // Format events
       const formattedEvents = (eventsData || []).map(event => ({
         ...event,
         date: event.date,
@@ -77,7 +81,6 @@ export const useEvents = (): UseEventsResult => {
 
       if (updateError) throw updateError;
 
-      // Refresh the events list
       const today = new Date();
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(today.getDate() + 30);

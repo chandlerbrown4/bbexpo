@@ -1,11 +1,11 @@
 export const developmentConfig = {
-  // Set this to true to use the development location instead of actual GPS
+  // toggle dev location vs real location
   useDevLocation: true,
   
-  // Development location coordinates (North Wilkesboro)
+  // North wilkes
   devLocation: {
-    latitude: 36.1584,
-    longitude: -81.1476,
+    latitude: 36.1432,
+    longitude: -81.2085,
   },
   
   // Other development locations for testing
@@ -14,18 +14,9 @@ export const developmentConfig = {
       latitude: 36.1584,
       longitude: -81.1476,
     },
-    sanFrancisco: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-    },
     charlotte: {
       latitude: 35.2271,
       longitude: -80.8431,
-    },
-    // Add a location near your test bar for development
-    nearBar: {
-      latitude: 36.1584,  // Update these coordinates to be within 2 miles of your test bar
-      longitude: -81.1476,
     },
   },
 };
