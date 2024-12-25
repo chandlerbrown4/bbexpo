@@ -180,7 +180,7 @@ export const darkTheme: Theme = {
 
 export const useTheme = () => {
   const colorScheme = useColorScheme() || Appearance.getColorScheme();
-  return colorScheme === 'dark' ? darkTheme : lightTheme;
+  return colorScheme === 'dark' ? lightTheme : lightTheme;
 };
 
 export const theme = lightTheme;

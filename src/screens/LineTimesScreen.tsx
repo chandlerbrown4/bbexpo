@@ -1,4 +1,10 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { 
+  useState, 
+  useEffect, 
+  useLayoutEffect,
+  useMemo, 
+  useCallback 
+} from 'react';
 import {
   View,
   Text,
@@ -28,13 +34,13 @@ import {
   Ionicons,
 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
 import { useNearbyBars } from '../hooks/useNearbyBars';
 import { useLocation } from '../context/LocationContext';
 import { theme as defaultTheme, useTheme } from '../theme/theme';
 import { Bar } from '../types/bar';
 import { supabase } from '../services/supabase';
 import { useBarReports, BarReport } from '../hooks/useBarReports';
+import { useBarFavorites } from '../hooks/useBarFavorites';
 
 interface BarStatus {
   waitMinutes: number | null;
@@ -103,19 +109,43 @@ const SearchHeader: React.FC<{
   onFilter: () => void;
 }> = ({ onSearch, onFilter }) => {
   const theme = useTheme();
+  
+  const dynamicStyles = useMemo(() => ({
+    filterButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    filterButtonActive: {
+      backgroundColor: theme.colors.primary + '20',
+      borderColor: theme.colors.primary,
+    },
+    filterButtonText: {
+      marginLeft: 4,
+      color: theme.colors.text,
+    },
+    filterButtonTextActive: {
+      color: theme.colors.primary,
+    },
+  }), [theme]);
 
   return (
     <View style={styles.searchHeader}>
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color={theme.colors.text} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search bars..."
-          placeholderTextColor="#666"
-          onChangeText={onSearch}
-        />
-        <TouchableOpacity onPress={onFilter}>
-          <Ionicons name="filter" size={20} color={theme.colors.primary} />
+      <View style={styles.searchRow}>
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search bars..."
+            onChangeText={onSearch}
+          />
+        </View>
+        <TouchableOpacity style={styles.filterButton} onPress={onFilter}>
+          <Ionicons name="options" size={24} color="#666" />
         </TouchableOpacity>
       </View>
     </View>
@@ -463,27 +493,43 @@ const ReportHistoryModal: React.FC<{
 
       <View style={styles.reportFooter}>
         <TouchableOpacity
-          style={styles.voteButton}
+          style={[
+            styles.voteButton,
+            report.user_vote === 1 && styles.voteButtonActive
+          ]}
           onPress={() => upvoteReport(report.report_id)}
         >
           <Ionicons
-            name="thumbs-up"
+            name={report.user_vote === 1 ? "thumbs-up" : "thumbs-up-outline"}
             size={20}
-            color={theme.colors.primary}
+            color={report.user_vote === 1 ? theme.colors.primary : theme.colors.text}
           />
-          <Text style={styles.voteCount}>{report.upvotes}</Text>
+          <Text style={[
+            styles.voteCount,
+            report.user_vote === 1 && styles.voteCountActive
+          ]}>
+            {report.upvotes}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.voteButton}
+          style={[
+            styles.voteButton,
+            report.user_vote === -1 && styles.voteButtonActive
+          ]}
           onPress={() => downvoteReport(report.report_id)}
         >
           <Ionicons
-            name="thumbs-down"
+            name={report.user_vote === -1 ? "thumbs-down" : "thumbs-down-outline"}
             size={20}
-            color={theme.colors.text}
+            color={report.user_vote === -1 ? theme.colors.error : theme.colors.text}
           />
-          <Text style={styles.voteCount}>{report.downvotes}</Text>
+          <Text style={[
+            styles.voteCount,
+            report.user_vote === -1 && styles.voteCountActive
+          ]}>
+            {report.downvotes}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -611,6 +657,42 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
     }
   };
 
+  const dynamicStyles = useMemo(() => ({
+    filterButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    filterButtonActive: {
+      backgroundColor: theme.colors.primary + '20',
+      borderColor: theme.colors.primary,
+    },
+    filterButtonText: {
+      marginLeft: 4,
+      color: theme.colors.text,
+    },
+    filterButtonTextActive: {
+      color: theme.colors.primary,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    cancelButton: {
+      backgroundColor: '#f5f5f5',
+    },
+    submitButton: {
+      backgroundColor: '#4CAF50',
+    },
+    submitButtonText: {
+      color: 'white',
+    },
+  }), [theme]);
+
   return (
     <Modal
       visible={visible}
@@ -711,7 +793,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
 
           <View style={styles.modalFooter}>
             <TouchableOpacity
-              style={[styles.footerButton, styles.cancelButton]}
+              style={[dynamicStyles.cancelButton]}
               onPress={onClose}
               disabled={submitting}
             >
@@ -719,8 +801,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.footerButton,
-                styles.submitButton,
+                dynamicStyles.submitButton,
                 (!location || submitting || locationLoading) && styles.disabledButton,
               ]}
               onPress={handleSubmit}
@@ -729,7 +810,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
               {submitting || locationLoading ? (
                 <ActivityIndicator color="white" size="small" />
               ) : (
-                <Text style={[styles.buttonText, styles.submitButtonText]}>
+                <Text style={[styles.buttonText, dynamicStyles.submitButtonText]}>
                   Submit Report
                 </Text>
               )}
@@ -747,6 +828,7 @@ export const LineTimesScreen: React.FC = () => {
   const route = useRoute();
   const navState = useNavigationState(state => state);
   const { location } = useLocation();
+  const { isFavorite, toggleFavorite } = useBarFavorites();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedBar, setExpandedBar] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -755,6 +837,7 @@ export const LineTimesScreen: React.FC = () => {
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Round the distance to the nearest meter
   const radiusMeters = Math.round(filters.maxDistance * 1609.34);
@@ -802,9 +885,12 @@ export const LineTimesScreen: React.FC = () => {
           if (!matchesAllSelected) return false;
         }
 
+        // Favorites filter
+        if (showFavoritesOnly && !isFavorite(bar.id)) return false;
+
         return true;
       });
-  }, [bars, searchQuery, filters]);
+  }, [bars, searchQuery, filters, showFavoritesOnly, isFavorite]);
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
@@ -899,6 +985,18 @@ export const LineTimesScreen: React.FC = () => {
               />
               <Text style={styles.actionButtonText}>View History</Text>
             </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => toggleFavorite(item.id)}
+            >
+              <Ionicons
+                name={isFavorite(item.id) ? "star" : "star-outline"}
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.actionButtonText}>{isFavorite(item.id) ? 'Unfavorite' : 'Favorite'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -952,6 +1050,50 @@ export const LineTimesScreen: React.FC = () => {
     }
   };
 
+  const dynamicStyles = useMemo(() => ({
+    filterButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    filterButtonActive: {
+      backgroundColor: theme.colors.primary + '20',
+      borderColor: theme.colors.primary,
+    },
+    filterButtonText: {
+      marginLeft: 4,
+      color: theme.colors.text,
+    },
+    filterButtonTextActive: {
+      color: theme.colors.primary,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+  }), [theme]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={styles.headerButton}
+          onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
+        >
+          <Ionicons 
+            name={showFavoritesOnly ? "star" : "star-outline"} 
+            size={24} 
+            color={showFavoritesOnly ? theme.colors.primary : theme.colors.text} 
+          />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, showFavoritesOnly, theme]);
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -969,8 +1111,11 @@ export const LineTimesScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <SearchHeader onSearch={handleSearch} onFilter={handleFilter} />
+    <View style={dynamicStyles.container}>
+      <SearchHeader 
+        onSearch={handleSearch} 
+        onFilter={handleFilter}
+      />
       <FlatList
         data={filteredBars}
         renderItem={renderBar}
@@ -1055,27 +1200,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight : 0,
   },
   searchHeader: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
   },
-  searchBar: {
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  searchInputContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
+    padding: 8,
+    marginRight: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
     fontSize: 16,
     color: '#000',
+  },
+  filterButton: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     padding: 16,
@@ -1382,10 +1549,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   headerButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginRight: 16,
+    padding: 4,
   },
   historyTitle: {
     fontSize: 18,
@@ -1520,5 +1685,29 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 16,
     color: '#666',
+  },
+  voteContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 16
+  },
+  voteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    gap: 4
+  },
+  voteButtonActive: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)'
+  },
+  voteCount: {
+    fontSize: 14,
+    color: '#666'
+  },
+  voteCountActive: {
+    color: '#000'
   },
 });

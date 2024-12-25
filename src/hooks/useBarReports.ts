@@ -68,31 +68,18 @@ export const useBarReports = (barId: string): UseBarReportsReturn => {
 
   const handleVote = async (reportId: string, isUpvote: boolean) => {
     try {
-      const { data, error } = await supabase.rpc(
+      const { error } = await supabase.rpc(
         'vote_on_line_report',
         {
-          report_id: reportId,
-          vote_type: isUpvote ? 1 : -1
+          p_line_report_id: reportId,
+          p_vote_type: isUpvote ? 1 : -1
         }
       );
 
       if (error) throw error;
-      if (!data.success) throw new Error(data.message);
 
-      // Update local state
-      setReports(prevReports =>
-        prevReports.map(report => {
-          if (report.report_id === reportId) {
-            return {
-              ...report,
-              upvotes: isUpvote ? report.upvotes + 1 : report.upvotes,
-              downvotes: !isUpvote ? report.downvotes + 1 : report.downvotes,
-              user_vote: isUpvote ? 1 : -1
-            };
-          }
-          return report;
-        })
-      );
+      // Refresh reports to get updated vote counts
+      await fetchReports();
     } catch (err) {
       console.error(`Error ${isUpvote ? 'upvoting' : 'downvoting'} report:`, err);
       throw err;
