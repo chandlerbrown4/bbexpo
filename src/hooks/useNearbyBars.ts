@@ -10,7 +10,7 @@ interface UseNearbyBarsReturn {
   refreshBars: () => Promise<void>;
 }
 
-export const useNearbyBars = (radiusMeters: number = 5000): UseNearbyBarsReturn => {
+export const useNearbyBars = (radiusMeters: number = 32186): UseNearbyBarsReturn => {
   const { location } = useLocation();
   const [bars, setBars] = useState<Bar[]>([]);
   const [loading, setLoading] = useState(true);

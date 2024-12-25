@@ -197,21 +197,17 @@ const FilterModal: React.FC<{
   filters: FilterOptions;
   onApplyFilters: (filters: FilterOptions) => void;
 }> = ({ visible, onClose, filters, onApplyFilters }) => {
-  const [localFilters, setLocalFilters] = useState<FilterOptions>(filters);
   const theme = useTheme();
+  const [localFilters, setLocalFilters] = useState<FilterOptions>(filters);
+  const [distanceInput, setDistanceInput] = useState(filters.maxDistance.toString());
+  const [waitTimeInput, setWaitTimeInput] = useState(filters.maxWaitTime?.toString() || '');
 
   const handleDistanceChange = (value: string) => {
-    const distance = parseInt(value);
-    if (!isNaN(distance) && distance > 0) {
-      setLocalFilters(prev => ({ ...prev, maxDistance: distance }));
-    }
+    setDistanceInput(value);
   };
 
   const handleWaitTimeChange = (value: string) => {
-    const waitTime = parseInt(value);
-    if (!isNaN(waitTime) && waitTime >= 0) {
-      setLocalFilters(prev => ({ ...prev, maxWaitTime: waitTime }));
-    }
+    setWaitTimeInput(value);
   };
 
   const toggleCrowdDensity = (density: 'light' | 'moderate' | 'packed') => {
@@ -233,6 +229,21 @@ const FilterModal: React.FC<{
     }));
   };
 
+  const handleApply = () => {
+    // Validate and sanitize inputs before applying
+    const distance = Math.min(Math.max(parseFloat(distanceInput) || 0.1, 0.1), 5);
+    const waitTime = parseInt(waitTimeInput);
+
+    const sanitizedFilters = {
+      ...localFilters,
+      maxDistance: distance,
+      maxWaitTime: !isNaN(waitTime) && waitTime > 0 ? waitTime : undefined,
+    };
+
+    onApplyFilters(sanitizedFilters);
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
@@ -240,91 +251,138 @@ const FilterModal: React.FC<{
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter Bars</Text>
-            <TouchableOpacity onPress={onClose}>
+      <View style={filterStyles.modalOverlay}>
+        <View style={filterStyles.modalContent}>
+          <View style={filterStyles.modalHeader}>
+            <Text style={filterStyles.modalTitle}>Filter Bars</Text>
+            <TouchableOpacity 
+              style={filterStyles.closeButton}
+              onPress={onClose}
+            >
               <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView style={filterStyles.scrollContent}>
             {/* Distance Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Maximum Distance</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={localFilters.maxDistance.toString()}
-                onChangeText={handleDistanceChange}
-                placeholder="Enter distance in miles"
-              />
+            <View style={filterStyles.filterSection}>
+              <View style={filterStyles.filterTitleRow}>
+                <Ionicons name="location-outline" size={20} color={theme.colors.primary} />
+                <Text style={filterStyles.filterTitle}>Maximum Distance</Text>
+              </View>
+              <View style={filterStyles.inputContainer}>
+                <TextInput
+                  style={filterStyles.input}
+                  keyboardType="numeric"
+                  value={distanceInput}
+                  onChangeText={handleDistanceChange}
+                  placeholder="Enter distance (0.1-5 miles)"
+                />
+                <Text style={filterStyles.inputUnit}>miles</Text>
+              </View>
             </View>
 
             {/* Wait Time Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Maximum Wait Time</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={localFilters.maxWaitTime?.toString() || ''}
-                onChangeText={handleWaitTimeChange}
-                placeholder="Enter max wait time in minutes"
-              />
+            <View style={filterStyles.filterSection}>
+              <View style={filterStyles.filterTitleRow}>
+                <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
+                <Text style={filterStyles.filterTitle}>Maximum Wait Time</Text>
+              </View>
+              <View style={filterStyles.inputContainer}>
+                <TextInput
+                  style={filterStyles.input}
+                  keyboardType="numeric"
+                  value={waitTimeInput}
+                  onChangeText={handleWaitTimeChange}
+                  placeholder="Enter max wait time"
+                />
+                <Text style={filterStyles.inputUnit}>mins</Text>
+              </View>
             </View>
 
             {/* Crowd Density Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Crowd Density</Text>
-              {(['light', 'moderate', 'packed'] as const).map(density => (
-                <TouchableOpacity
-                  key={density}
-                  style={[
-                    styles.densityOption,
-                    localFilters.crowdDensity.includes(density) && styles.selectedDensity,
-                  ]}
-                  onPress={() => toggleCrowdDensity(density)}
-                >
-                  <Text style={styles.densityText}>
-                    {density.charAt(0).toUpperCase() + density.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={filterStyles.filterSection}>
+              <View style={filterStyles.filterTitleRow}>
+                <Ionicons name="people-outline" size={20} color={theme.colors.primary} />
+                <Text style={filterStyles.filterTitle}>Crowd Density</Text>
+              </View>
+              <View style={filterStyles.densityOptionsContainer}>
+                {(['light', 'moderate', 'packed'] as const).map((density) => (
+                  <TouchableOpacity
+                    key={density}
+                    style={[
+                      filterStyles.densityOption,
+                      localFilters.crowdDensity.includes(density) && {
+                        backgroundColor: theme.colors.primary + '15',
+                        borderColor: theme.colors.primary,
+                      },
+                    ]}
+                    onPress={() => toggleCrowdDensity(density)}
+                  >
+                    <Ionicons
+                      name={localFilters.crowdDensity.includes(density) ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={18}
+                      color={localFilters.crowdDensity.includes(density) ? theme.colors.primary : '#666'}
+                      style={filterStyles.densityIcon}
+                    />
+                    <Text
+                      style={[
+                        filterStyles.densityText,
+                        localFilters.crowdDensity.includes(density) && {
+                          color: theme.colors.primary,
+                          fontWeight: '600',
+                        },
+                      ]}
+                    >
+                      {density.charAt(0).toUpperCase() + density.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             {/* Amenities Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Amenities</Text>
-              {Object.entries(localFilters.amenities).map(([key, value]) => (
-                <View key={key} style={styles.amenityRow}>
-                  <Text style={styles.amenityText}>
-                    {formatAmenityName(key)}
-                  </Text>
-                  <Switch
-                    value={value}
-                    onValueChange={() => toggleAmenity(key as keyof FilterOptions['amenities'])}
-                  />
-                </View>
-              ))}
+            <View style={filterStyles.filterSection}>
+              <View style={filterStyles.filterTitleRow}>
+                <Ionicons name="wine-outline" size={20} color={theme.colors.primary} />
+                <Text style={filterStyles.filterTitle}>Amenities</Text>
+              </View>
+              <View style={filterStyles.amenitiesContainer}>
+                {Object.entries(localFilters.amenities).map(([key, value]) => (
+                  <View key={key} style={filterStyles.amenityRow}>
+                    <Text style={filterStyles.amenityText}>
+                      {formatAmenityName(key)}
+                    </Text>
+                    <Switch
+                      value={value}
+                      onValueChange={(newValue) =>
+                        toggleAmenity(key as keyof typeof localFilters.amenities)
+                      }
+                      trackColor={{ false: '#ddd', true: theme.colors.primary + '50' }}
+                      thumbColor={value ? theme.colors.primary : '#fff'}
+                    />
+                  </View>
+                ))}
+              </View>
             </View>
           </ScrollView>
 
-          <View style={styles.modalFooter}>
+          <View style={filterStyles.modalFooter}>
             <TouchableOpacity
-              style={[styles.footerButton, styles.resetButton]}
-              onPress={() => setLocalFilters(defaultFilters)}
-            >
-              <Text style={styles.buttonText}>Reset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.footerButton, styles.applyButton]}
+              style={[filterStyles.footerButton, filterStyles.resetButton]}
               onPress={() => {
-                onApplyFilters(localFilters);
-                onClose();
+                setDistanceInput('0.1');
+                setWaitTimeInput('');
+                setLocalFilters(defaultFilters);
               }}
             >
-              <Text style={[styles.buttonText, styles.applyButtonText]}>Apply</Text>
+              <Text style={filterStyles.resetButtonText}>Reset All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[filterStyles.footerButton, filterStyles.applyButton]}
+              onPress={handleApply}
+            >
+              <Text style={filterStyles.applyButtonText}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -760,30 +818,31 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
             </View>
 
             {/* Crowd Density Selection */}
-            <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>Crowd Density</Text>
-              <View style={styles.densityOptions}>
-                {(['light', 'moderate', 'packed'] as const).map((density) => (
-                  <TouchableOpacity
-                    key={density}
+            <Text style={styles.inputLabel}>Crowd Density</Text>
+            <View style={styles.crowdDensityContainer}>
+              {['light', 'moderate', 'packed'].map((density) => (
+                <TouchableOpacity
+                  key={density}
+                  style={[
+                    styles.densityOption,
+                    crowdDensity === density && {
+                      backgroundColor: theme.colors.primary + '20',
+                      borderColor: theme.colors.primary,
+                    },
+                  ]}
+                  onPress={() => setCrowdDensity(density)}
+                  disabled={submitting}
+                >
+                  <Text
                     style={[
-                      styles.densityOption,
-                      crowdDensity === density && styles.selectedDensity,
+                      styles.densityText,
+                      crowdDensity === density && { color: theme.colors.primary },
                     ]}
-                    onPress={() => setCrowdDensity(density)}
-                    disabled={submitting}
                   >
-                    <Text
-                      style={[
-                        styles.densityText,
-                        crowdDensity === density && styles.selectedDensityText,
-                      ]}
-                    >
-                      {density.charAt(0).toUpperCase() + density.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                    {density.charAt(0).toUpperCase() + density.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {error && (
@@ -793,15 +852,16 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
 
           <View style={styles.modalFooter}>
             <TouchableOpacity
-              style={[dynamicStyles.cancelButton]}
+              style={[styles.footerButton, styles.cancelButton]}
               onPress={onClose}
               disabled={submitting}
             >
-              <Text style={styles.buttonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                dynamicStyles.submitButton,
+                styles.footerButton,
+                styles.submitButton,
                 (!location || submitting || locationLoading) && styles.disabledButton,
               ]}
               onPress={handleSubmit}
@@ -810,9 +870,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
               {submitting || locationLoading ? (
                 <ActivityIndicator color="white" size="small" />
               ) : (
-                <Text style={[styles.buttonText, dynamicStyles.submitButtonText]}>
-                  Submit Report
-                </Text>
+                <Text style={styles.submitButtonText}>Submit Report</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1410,9 +1468,65 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    marginTop: 24,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  footerButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  densityOption: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  densityText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  crowdDensityContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   filterSection: {
     marginBottom: 24,
@@ -1429,85 +1543,6 @@ const styles = StyleSheet.create({
     padding: 8,
     fontSize: 16,
   },
-  densityOption: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    marginVertical: 4,
-  },
-  selectedDensity: {
-    backgroundColor: '#2196F3',
-  },
-  densityText: {
-    fontSize: 16,
-    color: '#000',
-  },
-  amenityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  amenityText: {
-    fontSize: 16,
-  },
-  footerButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 8,
-    alignItems: 'center',
-  },
-  resetButton: {
-    backgroundColor: '#f5f5f5',
-  },
-  applyButton: {
-    backgroundColor: '#2196F3',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  applyButtonText: {
-    color: '#fff',
-  },
-  photoPreview: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  removePhotoButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 12,
-  },
-  photoUploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    borderStyle: 'dashed',
-  },
-  photoUploadText: {
-    marginLeft: 8,
-    color: '#666',
-  },
-  notesInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
   inputSection: {
     marginBottom: 24,
   },
@@ -1515,25 +1550,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginBottom: 8,
-  },
-  densityOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  selectedDensityText: {
-    color: 'white',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  cancelButton: {
-    backgroundColor: '#f5f5f5',
-  },
-  submitButton: {
-    backgroundColor: '#4CAF50',
-  },
-  submitButtonText: {
-    color: 'white',
   },
   historyContainer: {
     flex: 1,
@@ -1709,5 +1725,169 @@ const styles = StyleSheet.create({
   },
   voteCountActive: {
     color: '#000'
+  },
+});
+
+const filterStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  scrollContent: {
+    padding: 20,
+  },
+  filterSection: {
+    marginBottom: 28,
+  },
+  filterTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  filterTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+  },
+  inputUnit: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 8,
+  },
+  densityOptionsContainer: {
+    gap: 12,
+  },
+  densityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  densityIcon: {
+    marginRight: 8,
+  },
+  densityText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  amenitiesContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  amenityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  amenityText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    paddingBottom: 36,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    gap: 12,
+  },
+  footerButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  resetButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  applyButton: {
+    backgroundColor: '#4CAF50',
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  applyButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });
