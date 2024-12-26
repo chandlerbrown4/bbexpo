@@ -23,6 +23,7 @@ import {
   Image,
   Dimensions,
   SafeAreaView,
+  Linking
 } from 'react-native';
 import {
   useNavigation,
@@ -41,6 +42,7 @@ import { Bar } from '../types/bar';
 import { supabase } from '../services/supabase';
 import { useBarReports, BarReport } from '../hooks/useBarReports';
 import { useBarFavorites } from '../hooks/useBarFavorites';
+import { useBarDetails, formatRecurringSpecial, formatHours } from '../hooks/useBarDetails';
 
 interface BarStatus {
   waitMinutes: number | null;
@@ -882,8 +884,13 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
 };
 
 // Info Modal Component
-const InfoModal = ({ visible, onClose, bar }: { visible: boolean; onClose: () => void; bar: Bar }) => {
+const InfoModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  bar: Bar;
+}> = ({ visible, onClose, bar }) => {
   const theme = useTheme();
+  const { contact, events, specials, hours, isLoading, error } = useBarDetails(bar.id);
   
   const infoStyles = StyleSheet.create({
     infoModalContent: {
@@ -957,7 +964,106 @@ const InfoModal = ({ visible, onClose, bar }: { visible: boolean; onClose: () =>
       fontSize: 16,
       color: theme.colors.text,
     },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorText: {
+      color: theme.colors.error,
+      textAlign: 'center',
+      marginTop: 20,
+    },
   });
+
+  const handlePhonePress = (phone: string) => {
+    Linking.openURL(`tel:${phone}`);
+  };
+
+  const handleWebsitePress = (website: string) => {
+    Linking.openURL(website.startsWith('http') ? website : `https://${website}`);
+  };
+
+  const handleAddressPress = (address: string) => {
+    Linking.openURL(`https://maps.google.com?q=${encodeURIComponent(address)}`);
+  };
+
+  const handleRidePress = (service: 'uber' | 'lyft') => {
+    // Use the bar's exact coordinates and name
+    const destination = {
+      latitude: bar.latitude,
+      longitude: bar.longitude,
+      name: bar.name,
+      address: bar.address
+    };
+
+    console.log('Ride Press:', {
+      service,
+      destination
+    });
+
+    // Try app URLs first with exact coordinates
+    const appUrl = service === 'uber'
+      ? `uber://?action=setPickup&pickup=my_location`
+        + `&dropoff[latitude]=${destination.latitude}`
+        + `&dropoff[longitude]=${destination.longitude}`
+        + `&dropoff[nickname]=${encodeURIComponent(destination.name)}`
+        + `&dropoff[formatted_address]=${encodeURIComponent(destination.address)}`
+      : `lyft://ridetype?id=lyft&pickup=my_location`
+        + `&destination[latitude]=${destination.latitude}`
+        + `&destination[longitude]=${destination.longitude}`
+        + `&destination[address]=${encodeURIComponent(destination.address)}`;
+
+    const webUrl = service === 'uber'
+      ? `https://m.uber.com/ul?action=setPickup&pickup=my_location`
+        + `&dropoff[latitude]=${destination.latitude}`
+        + `&dropoff[longitude]=${destination.longitude}`
+        + `&dropoff[nickname]=${encodeURIComponent(destination.name)}`
+        + `&dropoff[formatted_address]=${encodeURIComponent(destination.address)}`
+      : `https://ride.lyft.com/ridetype?id=lyft&pickup=my_location`
+        + `&destination[latitude]=${destination.latitude}`
+        + `&destination[longitude]=${destination.longitude}`
+        + `&destination[address]=${encodeURIComponent(destination.address)}`;
+
+    console.log('Attempting to open app URL:', {
+      service,
+      appUrl
+    });
+
+    Linking.canOpenURL(appUrl)
+      .then(supported => {
+        if (supported) {
+          return Linking.openURL(appUrl);
+        } else {
+          console.log('App not installed, falling back to web URL:', {
+            service,
+            webUrl
+          });
+          return Linking.openURL(webUrl);
+        }
+      })
+      .then(() => {
+        console.log('Successfully opened URL for', service);
+      })
+      .catch(error => {
+        console.error('Error opening URL:', {
+          service,
+          error: error.message
+        });
+        // If there's an error with the app URL, try the web URL as fallback
+        console.log('Error with app URL, trying web URL:', {
+          service,
+          webUrl
+        });
+        Linking.openURL(webUrl).catch(webError => {
+          console.error('Error opening web URL:', {
+            service,
+            error: webError.message
+          });
+        });
+      });
+  };
 
   return (
     <Modal
@@ -975,73 +1081,129 @@ const InfoModal = ({ visible, onClose, bar }: { visible: boolean; onClose: () =>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
-            {/* Contact Information */}
-            <View style={infoStyles.infoSection}>
-              <View style={infoStyles.infoSectionHeader}>
-                <Ionicons name="call-outline" size={20} color={theme.colors.primary} />
-                <Text style={infoStyles.infoSectionTitle}>Contact</Text>
-              </View>
-              <TouchableOpacity style={infoStyles.infoRow}>
-                <Text style={infoStyles.infoLabel}>Phone</Text>
-                <Text style={infoStyles.infoValue}>(555) 123-4567</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={infoStyles.infoRow}>
-                <Text style={infoStyles.infoLabel}>Website</Text>
-                <Text style={[infoStyles.infoValue, infoStyles.link]}>www.barwebsite.com</Text>
-              </TouchableOpacity>
+          {isLoading ? (
+            <View style={infoStyles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
             </View>
-
-            {/* Hours & Location */}
-            <View style={infoStyles.infoSection}>
-              <View style={infoStyles.infoSectionHeader}>
-                <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
-                <Text style={infoStyles.infoSectionTitle}>Hours & Location</Text>
-              </View>
-              <View style={infoStyles.infoRow}>
-                <Text style={infoStyles.infoLabel}>Today</Text>
-                <Text style={infoStyles.infoValue}>11:00 AM - 2:00 AM</Text>
-              </View>
-              <TouchableOpacity style={infoStyles.infoRow}>
-                <Text style={infoStyles.infoLabel}>Address</Text>
-                <Text style={[infoStyles.infoValue, infoStyles.link]}>{bar.address}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Ride Services */}
-            <View style={infoStyles.infoSection}>
-              <View style={infoStyles.infoSectionHeader}>
-                <Ionicons name="car-outline" size={20} color={theme.colors.primary} />
-                <Text style={infoStyles.infoSectionTitle}>Get a Ride</Text>
-              </View>
-              <View style={infoStyles.rideButtons}>
-                <TouchableOpacity style={infoStyles.rideButton}>
-                  <Text style={infoStyles.rideButtonText}>Uber</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={infoStyles.rideButton}>
-                  <Text style={infoStyles.rideButtonText}>Lyft</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Specials & Events */}
-            <View style={infoStyles.infoSection}>
-              <View style={infoStyles.infoSectionHeader}>
-                <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
-                <Text style={infoStyles.infoSectionTitle}>Specials & Events</Text>
-              </View>
-              <View style={infoStyles.specialsList}>
-                <View style={infoStyles.specialItem}>
-                  <Text style={infoStyles.specialDay}>Monday</Text>
-                  <Text style={infoStyles.specialDescription}>$2 Domestic Drafts</Text>
+          ) : error ? (
+            <Text style={infoStyles.errorText}>{error}</Text>
+          ) : (
+            <ScrollView style={styles.modalBody}>
+              {/* Contact Information */}
+              <View style={infoStyles.infoSection}>
+                <View style={infoStyles.infoSectionHeader}>
+                  <Ionicons name="call-outline" size={20} color={theme.colors.primary} />
+                  <Text style={infoStyles.infoSectionTitle}>Contact</Text>
                 </View>
-                <View style={infoStyles.specialItem}>
-                  <Text style={infoStyles.specialDay}>Thursday</Text>
-                  <Text style={infoStyles.specialDescription}>Trivia Night - 8PM</Text>
+                {contact.phone && (
+                  <TouchableOpacity 
+                    style={infoStyles.infoRow}
+                    onPress={() => handlePhonePress(contact.phone!)}
+                  >
+                    <Text style={infoStyles.infoLabel}>Phone</Text>
+                    <Text style={[infoStyles.infoValue, infoStyles.link]}>{contact.phone}</Text>
+                  </TouchableOpacity>
+                )}
+                {contact.website && (
+                  <TouchableOpacity 
+                    style={infoStyles.infoRow}
+                    onPress={() => handleWebsitePress(contact.website!)}
+                  >
+                    <Text style={infoStyles.infoLabel}>Website</Text>
+                    <Text style={[infoStyles.infoValue, infoStyles.link]}>{contact.website}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Hours & Location */}
+              <View style={infoStyles.infoSection}>
+                <View style={infoStyles.infoSectionHeader}>
+                  <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
+                  <Text style={infoStyles.infoSectionTitle}>Hours & Location</Text>
+                </View>
+                <View style={infoStyles.infoRow}>
+                  <Text style={infoStyles.infoLabel}>Today's Hours</Text>
+                  <Text style={infoStyles.infoValue}>{formatHours(hours)}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={infoStyles.infoRow}
+                  onPress={() => handleAddressPress(bar.address)}
+                >
+                  <Text style={infoStyles.infoLabel}>Address</Text>
+                  <Text style={[infoStyles.infoValue, infoStyles.link]}>{bar.address}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Ride Services */}
+              <View style={infoStyles.infoSection}>
+                <View style={infoStyles.infoSectionHeader}>
+                  <Ionicons name="car-outline" size={20} color={theme.colors.primary} />
+                  <Text style={infoStyles.infoSectionTitle}>Get a Ride</Text>
+                </View>
+                <View style={infoStyles.rideButtons}>
+                  <TouchableOpacity 
+                    style={infoStyles.rideButton}
+                    onPress={() => handleRidePress('uber')}
+                  >
+                    <Text style={infoStyles.rideButtonText}>Uber</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={infoStyles.rideButton}
+                    onPress={() => handleRidePress('lyft')}
+                  >
+                    <Text style={infoStyles.rideButtonText}>Lyft</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            </View>
-          </ScrollView>
+
+              {/* Events */}
+              {events.length > 0 && (
+                <View style={infoStyles.infoSection}>
+                  <View style={infoStyles.infoSectionHeader}>
+                    <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+                    <Text style={infoStyles.infoSectionTitle}>Upcoming Events</Text>
+                  </View>
+                  <View style={infoStyles.specialsList}>
+                    {events.map(event => (
+                      <View key={event.id} style={infoStyles.specialItem}>
+                        <Text style={infoStyles.specialDay}>
+                          {event.startTime.toLocaleDateString()} - {event.name}
+                        </Text>
+                        <Text style={infoStyles.specialDescription}>
+                          {event.description}
+                          {event.coverCharge ? ` ($${event.coverCharge} cover)` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Specials */}
+              {specials.length > 0 && (
+                <View style={infoStyles.infoSection}>
+                  <View style={infoStyles.infoSectionHeader}>
+                    <Ionicons name="pricetag-outline" size={20} color={theme.colors.primary} />
+                    <Text style={infoStyles.infoSectionTitle}>Specials</Text>
+                  </View>
+                  <View style={infoStyles.specialsList}>
+                    {specials.map(special => (
+                      <View key={special.id} style={infoStyles.specialItem}>
+                        <Text style={infoStyles.specialDay}>
+                          {special.recurring ? formatRecurringSpecial(special) : special.startTime.toLocaleDateString()}
+                          {' - '}{special.name}
+                        </Text>
+                        <Text style={infoStyles.specialDescription}>
+                          {special.description}
+                          {special.price ? ` ($${special.price})` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          )}
         </View>
       </View>
     </Modal>

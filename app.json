@@ -22,7 +22,11 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "BarScout needs your location to find bars and events near you",
         "NSLocationAlwaysUsageDescription": "BarScout needs your location to find bars and events near you",
         "NSCameraUsageDescription": "BarScout needs access to your camera to let you take photos for events",
-        "NSPhotoLibraryUsageDescription": "BarScout needs access to your photos to let you choose images for events"
+        "NSPhotoLibraryUsageDescription": "BarScout needs access to your photos to let you choose images for events",
+        "LSApplicationQueriesSchemes": [
+          "uber",
+          "lyft"
+        ]
       },
       "userInterfaceStyle": "automatic"
     },
@@ -39,6 +43,23 @@
         "WRITE_EXTERNAL_STORAGE"
       ],
       "package": "com.barscout.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "uber"
+            },
+            {
+              "scheme": "lyft"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "userInterfaceStyle": "automatic"
     },
     "web": {
