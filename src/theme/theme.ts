@@ -158,23 +158,23 @@ export const lightTheme: Theme = {
 export const darkTheme: Theme = {
   ...lightTheme,
   colors: {
-    primary: '#fb923c',        // Keep the same primary color
-    primaryLight: '#f48f51',   // Keep the same primary light
-    secondary: '#60a5fa',      // Keep the same secondary
-    accent: '#f59e0b',        // Keep the same accent
-    background: '#111827',     // Dark background
-    surface: '#1F2937',        // Slightly lighter dark
-    text: '#F9FAFB',          // Light text for contrast
-    textSecondary: '#9CA3AF',  // Secondary text color
-    error: '#ef4444',         // Keep the same error color
-    success: '#22c55e',       // Keep the same success color
-    warning: '#f59e0b',       // Keep the same warning color
-    info: '#3b82f6',         // Keep the same info color
-    border: '#374151',        // Darker border
-    card: '#1F2937',          // Dark card background
-    shadow: 'rgba(0, 0, 0, 0.3)', // Darker shadow
-    white: '#ffffff',         // Keep white the same
-    disabled: '#6b7280',      // Darker gray for disabled
+    primary: '#fb923c',        // Main orange from logo
+    primaryLight: '#f48f51',   // Light orange
+    secondary: '#334155',      // Slate 700
+    accent: '#0ea5e9',        // Sky 500
+    background: '#f8fafc',    // Slate 50
+    surface: '#ffffff',       // White
+    text: '#0f172a',         // Slate 900
+    textSecondary: '#64748b', // Slate 500
+    error: '#ef4444',        // Red 500
+    success: '#22c55e',      // Green 500
+    warning: '#f59e0b',      // Amber 500
+    info: '#3b82f6',         // Blue 500
+    border: '#e2e8f0',       // Slate 200
+    card: '#ffffff',         // White
+    shadow: '#94a3b8',       // Slate 400
+    white: '#ffffff',        // White
+    disabled: '#94a3b8',     // Slate 400 (same as shadow for consistency)
   },
 };
 

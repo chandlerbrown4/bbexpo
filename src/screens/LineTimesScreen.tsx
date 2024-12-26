@@ -658,6 +658,7 @@ interface LineReport {
 const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubmit }) => {
   const theme = useTheme();
   const { location, errorMsg, loading: locationLoading, requestLocationPermission } = useLocation();
+  const { isFavorite, toggleFavorite } = useBarFavorites();
   const [waitMinutes, setWaitMinutes] = useState('');
   const [crowdDensity, setCrowdDensity] = useState<'light' | 'moderate' | 'packed'>('moderate');
   const [capacityPercentage, setCapacityPercentage] = useState('');
@@ -880,6 +881,173 @@ const ReportModal: React.FC<ReportModalProps> = ({ visible, onClose, bar, onSubm
   );
 };
 
+// Info Modal Component
+const InfoModal = ({ visible, onClose, bar }: { visible: boolean; onClose: () => void; bar: Bar }) => {
+  const theme = useTheme();
+  
+  const infoStyles = StyleSheet.create({
+    infoModalContent: {
+      maxHeight: '80%',
+    },
+    infoSection: {
+      marginBottom: 24,
+    },
+    infoSectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    infoSectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginLeft: 8,
+      color: theme.colors.text,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: '#eee',
+    },
+    infoLabel: {
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    infoValue: {
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    link: {
+      color: theme.colors.primary,
+      textDecorationLine: 'underline',
+    },
+    rideButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginTop: 8,
+    },
+    rideButton: {
+      backgroundColor: theme.colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+      minWidth: 120,
+      alignItems: 'center',
+    },
+    rideButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    specialsList: {
+      marginTop: 8,
+    },
+    specialItem: {
+      marginBottom: 12,
+    },
+    specialDay: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    specialDescription: {
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+  });
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, infoStyles.infoModalContent]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{bar.name}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            {/* Contact Information */}
+            <View style={infoStyles.infoSection}>
+              <View style={infoStyles.infoSectionHeader}>
+                <Ionicons name="call-outline" size={20} color={theme.colors.primary} />
+                <Text style={infoStyles.infoSectionTitle}>Contact</Text>
+              </View>
+              <TouchableOpacity style={infoStyles.infoRow}>
+                <Text style={infoStyles.infoLabel}>Phone</Text>
+                <Text style={infoStyles.infoValue}>(555) 123-4567</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={infoStyles.infoRow}>
+                <Text style={infoStyles.infoLabel}>Website</Text>
+                <Text style={[infoStyles.infoValue, infoStyles.link]}>www.barwebsite.com</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Hours & Location */}
+            <View style={infoStyles.infoSection}>
+              <View style={infoStyles.infoSectionHeader}>
+                <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
+                <Text style={infoStyles.infoSectionTitle}>Hours & Location</Text>
+              </View>
+              <View style={infoStyles.infoRow}>
+                <Text style={infoStyles.infoLabel}>Today</Text>
+                <Text style={infoStyles.infoValue}>11:00 AM - 2:00 AM</Text>
+              </View>
+              <TouchableOpacity style={infoStyles.infoRow}>
+                <Text style={infoStyles.infoLabel}>Address</Text>
+                <Text style={[infoStyles.infoValue, infoStyles.link]}>{bar.address}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Ride Services */}
+            <View style={infoStyles.infoSection}>
+              <View style={infoStyles.infoSectionHeader}>
+                <Ionicons name="car-outline" size={20} color={theme.colors.primary} />
+                <Text style={infoStyles.infoSectionTitle}>Get a Ride</Text>
+              </View>
+              <View style={infoStyles.rideButtons}>
+                <TouchableOpacity style={infoStyles.rideButton}>
+                  <Text style={infoStyles.rideButtonText}>Uber</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={infoStyles.rideButton}>
+                  <Text style={infoStyles.rideButtonText}>Lyft</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Specials & Events */}
+            <View style={infoStyles.infoSection}>
+              <View style={infoStyles.infoSectionHeader}>
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+                <Text style={infoStyles.infoSectionTitle}>Specials & Events</Text>
+              </View>
+              <View style={infoStyles.specialsList}>
+                <View style={infoStyles.specialItem}>
+                  <Text style={infoStyles.specialDay}>Monday</Text>
+                  <Text style={infoStyles.specialDescription}>$2 Domestic Drafts</Text>
+                </View>
+                <View style={infoStyles.specialItem}>
+                  <Text style={infoStyles.specialDay}>Thursday</Text>
+                  <Text style={infoStyles.specialDescription}>Trivia Night - 8PM</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export const LineTimesScreen: React.FC = () => {
   const theme = useTheme();
   const navigation = useNavigation();
@@ -896,6 +1064,7 @@ export const LineTimesScreen: React.FC = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   // Round the distance to the nearest meter
   const radiusMeters = Math.round(filters.maxDistance * 1609.34);
@@ -979,7 +1148,17 @@ export const LineTimesScreen: React.FC = () => {
     >
       <View style={styles.barHeader}>
         <View style={styles.barInfo}>
-          <Text style={styles.barName}>{item.name}</Text>
+          <View style={styles.barTitleContainer}>
+            <Text style={styles.barName}>{item.name}</Text>
+            {isFavorite(item.id) && (
+              <Ionicons
+                name="star"
+                size={16}
+                color={theme.colors.primary}
+                style={styles.favoriteIcon}
+              />
+            )}
+          </View>
           <Text style={styles.barAddress}>{item.address}</Text>
           <Text style={styles.distance}>
             {metersToMiles(item.distance_meters)} away
@@ -1042,6 +1221,21 @@ export const LineTimesScreen: React.FC = () => {
                 color={theme.colors.primary}
               />
               <Text style={styles.actionButtonText}>View History</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                setSelectedBar(item);
+                setShowInfo(true);
+              }}
+            >
+              <Ionicons
+                name="information-circle"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.actionButtonText}>Info</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -1221,6 +1415,17 @@ export const LineTimesScreen: React.FC = () => {
         />
       )}
 
+      {selectedBar && showInfo && (
+        <InfoModal
+          visible={showInfo}
+          onClose={() => {
+            setShowInfo(false);
+            setSelectedBar(null);
+          }}
+          bar={selectedBar}
+        />
+      )}
+
       <TouchableOpacity
         style={styles.fab}
         onPress={() => {
@@ -1327,10 +1532,18 @@ const styles = StyleSheet.create({
   barInfo: {
     flex: 1,
   },
+  barTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   barName: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 4,
+    color: '#333',
+    marginRight: 4,
+  },
+  favoriteIcon: {
+    marginLeft: 4,
   },
   barAddress: {
     fontSize: 14,
@@ -1470,12 +1683,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 24,
     paddingHorizontal: 16,
+    paddingBottom: 32,
     gap: 12,
   },
   footerButton: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
