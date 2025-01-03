@@ -33,10 +33,15 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LineTimesScreen } from '../screens/LineTimesScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import SocialHubScreen from '../screens/SocialHubScreen';
+import { SignInScreen } from '../screens/auth/SignInScreen';
+import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { useTheme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { ActivityIndicator, View } from 'react-native';
 
 // Navigation types
 export type RootStackParamList = {
@@ -47,6 +52,8 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   NearbyBars: undefined;
+  Social: undefined;
+  Profile: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -72,6 +79,27 @@ const TabNavigator = () => {
           ),
         }}
       />
+      <Tab.Screen
+        name="Social"
+        component={SocialHubScreen}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-group" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 };
@@ -81,7 +109,11 @@ export const MainNavigator = () => {
   const theme = useTheme();
 
   if (loading) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -90,7 +122,16 @@ export const MainNavigator = () => {
         headerShown: false,
         cardStyle: { backgroundColor: theme.colors.background },
       }}>
-      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      {!user ? (
+        // Auth screens
+        <>
+          <Stack.Screen name="SignIn" component={SignInScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+        </>
+      ) : (
+        // App screens
+        <Stack.Screen name="MainTabs" component={TabNavigator} />
+      )}
     </Stack.Navigator>
   );
 };

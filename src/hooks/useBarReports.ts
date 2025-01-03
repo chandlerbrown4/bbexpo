@@ -10,8 +10,8 @@ export interface BarReport {
   crowd_density: 'light' | 'moderate' | 'packed';
   reporter_name: string;
   reporter_expertise_level: number;
-  upvotes: number;  // Cast from bigint in fetchReports
-  downvotes: number;  // Cast from bigint in fetchReports
+  upvotes: number;  
+  downvotes: number;  
   user_vote?: number;
   created_at: string;
 }

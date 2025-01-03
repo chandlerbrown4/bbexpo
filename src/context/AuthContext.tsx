@@ -11,6 +11,8 @@ interface UserProfile {
   date_of_birth: string;
   created_at: string;
   updated_at: string;
+  reputation_score: number;
+  username: string;
 }
 
 interface UserPreferences {
@@ -38,7 +40,8 @@ type AuthContextType = {
     firstName: string;
     lastName: string;
     dateOfBirth: Date;
-  }) => Promise<void>;
+    username: string;
+  }) => Promise<any>;
   signOut: () => Promise<void>;
 };
 
@@ -141,31 +144,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async ({
-    email,
-    password,
-    firstName,
-    lastName,
-    dateOfBirth,
-  }: {
+  const signUp = async (data: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
     dateOfBirth: Date;
+    username: string;
   }) => {
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
       });
 
       if (signUpError) throw signUpError;
-      if (!data.user) throw new Error('No user returned from sign up');
+      if (!authData.user) throw new Error('No user data returned from sign up');
 
-    } catch (error) {
-      console.error('Error in signUp:', error);
-      await supabase.auth.signOut();
+      const { data: profileData, error: profileError } = await supabase.rpc(
+        'handle_new_user_signup',
+        {
+          p_auth_id: authData.user.id,
+          p_display_name: `${data.firstName} ${data.lastName}`,
+          p_date_of_birth: data.dateOfBirth.toISOString().split('T')[0],
+          p_bio: null,
+          p_avatar_url: null,
+          p_username: data.username.toLowerCase()
+        }
+      );
+
+      if (profileError) {
+        // If profile creation fails, we should delete the auth user
+        await supabase.auth.signOut();
+        throw profileError;
+      }
+
+      return profileData;
+    } catch (error: any) {
       throw error;
     }
   };

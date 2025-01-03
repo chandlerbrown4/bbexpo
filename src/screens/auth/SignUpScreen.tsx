@@ -22,6 +22,9 @@
  * │ │ 📅 Date of Birth            │ │ <- DatePicker
  * │ └─────────────────────────────┘ │
  * │ ┌─────────────────────────────┐ │
+ * │ │ @ Username                  │ │ <- Input
+ * │ └─────────────────────────────┘ │
+ * │ ┌─────────────────────────────┐ │
  * │ │ 🔒 Password                 │ │ <- Input
  * │ └─────────────────────────────┘ │
  * │ ┌─────────────────────────────┐ │
@@ -38,6 +41,7 @@
  * - email: string
  * - firstName: string
  * - lastName: string
+ * - username: string
  * - password: string
  * - confirmPassword: string
  * - dateOfBirth: Date | null
@@ -49,6 +53,8 @@
  * - Password minimum 6 characters
  * - Password matching
  * - Valid email format
+ * - Username minimum 3 characters
+ * - Username only letters, numbers, and underscores
  * 
  * Authentication:
  * - Uses AuthContext.signUp(userData)
@@ -98,6 +104,7 @@ export const SignUpScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
@@ -106,12 +113,38 @@ export const SignUpScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    try {
-      setError(null);
-      setLoading(true);
+    if (!email || !firstName || !lastName || !password || !confirmPassword || !dateOfBirth || !username) {
+      setError('All fields are required');
+      return;
+    }
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    // Username validation
+    if (username.length < 3) {
+      setError('Username must be at least 3 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
       // Validate inputs
-      if (!email || !firstName || !lastName || !password || !confirmPassword || !dateOfBirth) {
+      if (!email || !firstName || !lastName || !password || !confirmPassword || !dateOfBirth || !username) {
         throw new Error('All fields are required');
       }
 
@@ -143,7 +176,8 @@ export const SignUpScreen: React.FC = () => {
         p_display_name: `${firstName.trim()} ${lastName.trim()}`,
         p_date_of_birth: dateOfBirth.toISOString().split('T')[0],
         p_bio: null,
-        p_avatar_url: null
+        p_avatar_url: null,
+        p_username: username
       };
 
       console.log('Attempting to create profile with data:', JSON.stringify(profileData, null, 2));
@@ -183,7 +217,11 @@ export const SignUpScreen: React.FC = () => {
       );
         
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during signup');
+      if (err.message.includes('Username') || err.message.includes('username')) {
+        setError('This username is already taken');
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred during signup');
+      }
     } finally {
       setLoading(false);
     }
@@ -250,7 +288,14 @@ export const SignUpScreen: React.FC = () => {
             autoCapitalize="words"
             leftIcon="account"
           />
-          
+          <Input
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            icon="at"
+          />
           <TouchableOpacity
             style={[
               styles.dateButton,
