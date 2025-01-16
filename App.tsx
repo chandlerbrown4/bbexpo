@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useColorScheme } from 'react-native';
@@ -9,6 +10,9 @@ import { LocationProvider } from './src/context/LocationContext';
 import { ReputationProvider } from './src/context/ReputationContext';
 import { MainNavigator } from './src/navigation/MainNavigator';
 import { darkTheme, lightTheme } from './src/theme/theme';
+import Toast from 'react-native-toast-message';
+
+const Stack = createStackNavigator();
 
 export default function App() {
   const colorScheme = useColorScheme();
@@ -50,7 +54,14 @@ export default function App() {
             <EventsProvider>
               <LocationProvider>
                 <ReputationProvider>
-                  <MainNavigator />
+                  <Stack.Navigator>
+                    <Stack.Screen
+                      name="Main"
+                      component={MainNavigator}
+                      options={{ headerShown: false }}
+                    />
+                  </Stack.Navigator>
+                  <Toast />
                 </ReputationProvider>
               </LocationProvider>
             </EventsProvider>
